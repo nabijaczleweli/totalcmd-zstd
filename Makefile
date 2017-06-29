@@ -1,0 +1,60 @@
+# The MIT License (MIT)
+
+# Copyright (c) 2017 nabijaczleweli
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+include configMakefile
+
+
+LDAR := $(PIC) $(foreach l,zstd,-L$(BLDDIR)$(l)) $(foreach dll,zstd,-l$(dll))
+INCAR := $(foreach l,totalcmd-wcx-api,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
+VERAR := $(foreach l,TOTALCMD_ZSTD ZSTD,-D$(l)_VERSION='$($(l)_VERSION)')
+SOURCES := $(sort $(wildcard src/*.cpp src/**/*.cpp src/**/**/*.cpp src/**/**/**/*.cpp))
+
+.PHONY : all clean zstd wcx
+
+all : zstd wcx
+
+clean :
+	rm -rf $(OUTDIR)
+
+wcx : $(OUTDIR)totalcmd-zstd$(WCX)
+zstd : $(BLDDIR)zstd/libzstd$(ARCH) $(BLDDIR)zstd/include/zstd/zstd.h
+
+
+$(OUTDIR)totalcmd-zstd$(WCX) : $(subst $(SRCDIR),$(OBJDIR),$(subst .cpp,$(OBJ),$(SOURCES)))
+	$(CXX) $(CXXAR) -shared -o$@ $^ $(PIC) $(LDAR)
+
+$(BLDDIR)zstd/libzstd$(ARCH) : $(subst ext/zstd/lib,$(BLDDIR)zstd/obj,$(subst .c,$(OBJ),$(wildcard ext/zstd/lib/common/*.c ext/zstd/lib/compress/*.c ext/zstd/lib/decompress/*.c)))
+	@mkdir -p $(dir $@)
+	$(AR) crs $@ $^
+
+$(BLDDIR)zstd/include/zstd/zstd.h : $(wildcard ext/zstd/lib/*.h ext/zstd/lib/common/*.h ext/zstd/lib/compress/*.h ext/zstd/lib/decompress/*.h)
+	@mkdir -p $(foreach incfile,$(subst ext/zstd/lib,$(BLDDIR)zstd/include/zstd,$^),$(abspath $(dir $(incfile))))
+	$(foreach incfile,$^,cp $(incfile) $(subst ext/zstd/lib,$(BLDDIR)zstd/include/zstd,$(incfile));)
+
+
+$(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXAR) $(INCAR) $(VERAR) -c -o$@ $^
+
+$(BLDDIR)zstd/obj/%$(OBJ) : ext/zstd/lib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CCAR) -Iext/zstd/lib -Iext/zstd/lib/common -c -o$@ $^

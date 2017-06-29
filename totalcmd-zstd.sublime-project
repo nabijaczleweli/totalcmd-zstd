@@ -1,0 +1,44 @@
+{
+	"build_systems":
+	[
+		{
+			"cmd": "make -j10",
+			"name": "Build totalcmd-zstd",
+			"working_dir": "$project_path"
+		},
+		{
+			"cmd": "make -j10 clean",
+			"name": "Clean totalcmd-zstd",
+			"working_dir": "$project_path"
+		}
+	],
+	"folders":
+	[
+		{
+			"name": "Source",
+			"path": "src"
+		},
+		{
+			"file_include_patterns":
+			[
+				"*Makefile*",
+				"*.yml",
+				"pluginst.inf"
+			],
+			"folder_exclude_patterns":
+			[
+				"*"
+			],
+			"name": "Build files",
+			"path": "."
+		},
+		{
+			"name": "External code",
+			"path": "ext"
+		}
+	],
+	"settings":
+	{
+		"tab_size": 2
+	}
+}
