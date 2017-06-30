@@ -25,7 +25,7 @@ include configMakefile
 
 LDAR := $(PIC) $(foreach l,zstd,-L$(BLDDIR)$(l)) $(foreach dll,zstd,-l$(dll))
 INCAR := $(foreach l,totalcmd-wcx-api,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
-VERAR := $(foreach l,TOTALCMD_ZSTD ZSTD,-D$(l)_VERSION='$($(l)_VERSION)')
+VERAR := $(foreach l,TOTALCMD_ZSTD,-D$(l)_VERSION='$($(l)_VERSION)')
 SOURCES := $(sort $(wildcard src/*.cpp src/**/*.cpp src/**/**/*.cpp src/**/**/**/*.cpp))
 
 .PHONY : all clean zstd wcx
@@ -53,7 +53,7 @@ $(BLDDIR)zstd/include/zstd/zstd.h : $(wildcard ext/zstd/lib/*.h ext/zstd/lib/com
 
 $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXAR) $(INCAR) $(VERAR) -c -o$@ $^
+	$(CXX) $(CXXAR) $(INCAR) $(VERAR) -DZSTD_STATIC_LINKING_ONLY -c -o$@ $^
 
 $(BLDDIR)zstd/obj/%$(OBJ) : ext/zstd/lib/%.c
 	@mkdir -p $(dir $@)

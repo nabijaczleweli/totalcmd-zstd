@@ -27,23 +27,13 @@
 #define WCX_PLUGIN_EXPORTS
 #include "wcxapi.h"
 
+#include "data.hpp"
+#include "util.hpp"
 #include <cstring>
-#include <fstream>
-#include <string>
-
-
-using namespace std::literals;
-
-
-struct archive_data {
-	std::ofstream log;
-	std::string file;
-	bool file_shown;
-};
 
 
 extern "C" WCX_API HANDLE STDCALL OpenArchive(tOpenArchiveData * ArchiveData) {
-	auto out = new archive_data{std::ofstream("t:/totalcmd-zstd.log", std::ios::app), ArchiveData->ArcName, false};
+	auto out = new archive_data(ArchiveData->ArcName);
 	out->log << "OpenArchive(" << out << "): ArcName=\"" << ArchiveData->ArcName << "\"; OpenMode=" << ArchiveData->OpenMode
 	         << "; OpenResult=" << ArchiveData->OpenResult << '\n';
 	return out;
@@ -53,10 +43,14 @@ extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderD
 	if(static_cast<archive_data *>(hArcData)->file_shown)
 		return E_END_ARCHIVE;
 
-	HeaderData->PackSize = 2;
-	HeaderData->UnpSize  = 10;
-	HeaderData->FileTime = 0;
-	std::strcpy(HeaderData->FileName, "karl_marx.txt");
+	const auto archtime = file_mod_time(static_cast<archive_data *>(hArcData)->file.c_str());
+
+	memset(HeaderData, 0, sizeof(*HeaderData));
+	std::strcpy(HeaderData->ArcName, static_cast<archive_data *>(hArcData)->derive_archive_name());
+	std::strcpy(HeaderData->FileName, static_cast<archive_data *>(hArcData)->derive_contained_name().c_str());
+	HeaderData->PackSize = static_cast<archive_data *>(hArcData)->size();
+	HeaderData->UnpSize  = static_cast<archive_data *>(hArcData)->unpacked_size();
+	HeaderData->FileTime = totalcmd_time(*std::localtime(&archtime));
 	static_cast<archive_data *>(hArcData)->log << "ReadHeader(" << hArcData << "): PackSize=" << HeaderData->PackSize << "; UnpSize=" << HeaderData->UnpSize
 	                                           << "; FileTime=" << HeaderData->FileTime << "; FileName=" << HeaderData->FileName << '\n';
 	static_cast<archive_data *>(hArcData)->file_shown = true;
@@ -77,7 +71,8 @@ extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char 
 				path.insert(0, DestPath);
 
 			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_EXTRACT, path=\"" << path << "\");\n";
-			std::ofstream(path, std::ios::binary) << "Karl Marx\n";
+			std::ofstream out(path, std::ios::binary);
+			static_cast<archive_data *>(hArcData)->unpack(out);
 		} break;
 	}
 
