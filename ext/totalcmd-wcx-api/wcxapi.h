@@ -108,6 +108,11 @@ WCX_API void STDCALL
 		PackDefaultParamStruct* dps
 		);
 
+WCX_API BOOL STDCALL
+	CanYouHandleThisFile (
+		char*FileName
+		);
+
 
 #ifdef __cplusplus
 }

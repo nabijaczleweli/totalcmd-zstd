@@ -93,3 +93,13 @@ extern "C" WCX_API void STDCALL SetProcessDataProc(HANDLE hArcData, tProcessData
 	static_cast<archive_data *>(hArcData)->log << "SetProcessDataProc(" << hArcData << ", pProcessDataProc1=" << reinterpret_cast<void *>(pProcessDataProc1)
 	                                           << ");\n";
 }
+
+extern "C" WCX_API BOOL STDCALL CanYouHandleThisFile(char * FileName) {
+	std::ofstream("t:/asdf.log", std::ios::app) << "CanYouHandleThisFile(" << FileName << ")=" << verify_magic(FileName) << ";" << std::endl;
+	return verify_magic(FileName);
+}
+
+extern "C" WCX_API int STDCALL GetPackerCaps() {
+	std::ofstream("t:/fdsa.log", std::ios::app) << "GetPackerCaps();" << std::endl;
+	return PK_CAPS_BY_CONTENT;
+}

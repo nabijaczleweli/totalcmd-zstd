@@ -33,14 +33,17 @@ const char * archive_data::derive_archive_name() const {
 }
 
 std::string archive_data::derive_contained_name() const {
-	auto start                     = file.find_last_of("\\/") + 1;
-	auto end                       = file.rfind('.');
-	auto is_compound_tar_extension = file.find("tzstd", end) != std::string::npos;
+	auto start              = file.find_last_of("\\/") + 1;
+	auto end                = file.rfind('.');
+	auto is_zstd_extension  = file.find("zstd", end) != std::string::npos;
+	auto is_tzstd_extension = file.find("tzstd", end) != std::string::npos;
 
-	if(is_compound_tar_extension)
+	if(is_tzstd_extension)
 		return file.substr(start, end + 1 - start) + "tar";
-	else
+	else if(is_zstd_extension)
 		return file.substr(start, end - start);
+	else
+		return file.substr(start);
 }
 
 std::size_t archive_data::size() {

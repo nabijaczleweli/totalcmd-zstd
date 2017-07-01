@@ -22,7 +22,9 @@
 
 #include "util.hpp"
 #include <sys/stat.h>
+#include <fstream>
 #include <sys/types.h>
+#include <zstd/zstd.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -36,4 +38,10 @@ std::time_t file_mod_time(const char * fname) {
 	struct stat buf;
 	stat(fname, &buf);
 	return buf.st_mtime;
+}
+
+bool verify_magic(const char * fname) {
+	char buf[4];
+	std::ifstream(fname, std::ios::binary).read(buf, sizeof buf);
+	return ZSTD_isFrame(buf, sizeof buf);
 }

@@ -37,3 +37,5 @@
 int totalcmd_time(std::tm from);
 
 std::time_t file_mod_time(const char * fname);
+
+bool verify_magic(const char * fname);
