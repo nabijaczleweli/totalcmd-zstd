@@ -20,9 +20,13 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include "data.hpp"
 #include "quickscope_wrapper.hpp"
 #include <memory>
+#include <wcxhead.h>
 #include <zstd/zstd.h>
 
 
@@ -55,18 +59,19 @@ std::size_t archive_data::size() {
 std::size_t archive_data::unpacked_size() {
 	if(!unpacked_len) {
 		load_contents();
-		file_len = ZSTD_getFrameContentSize(contents.data(), file_len);
-		if(file_len == ZSTD_CONTENTSIZE_UNKNOWN || file_len == ZSTD_CONTENTSIZE_ERROR)
-			file_len = 0;
+		unpacked_len = ZSTD_getFrameContentSize(contents.data(), file_len);
+		if(unpacked_len == ZSTD_CONTENTSIZE_UNKNOWN || unpacked_len == ZSTD_CONTENTSIZE_ERROR)
+			unpacked_len = 0;
 	}
-	return file_len;
+	return unpacked_len;
 }
 
-void archive_data::unpack(std::ostream & into) {
+int archive_data::unpack(std::ostream & into) {
 	load_contents();
+	unpacked_len = 0;
 
 	auto out_buffer = std::make_unique<char[]>(ZSTD_DStreamOutSize());
-	ZSTD_inBuffer in_buf{contents.data(), file_len, 0};
+	ZSTD_inBuffer in_buf{contents.data(), size(), 0};
 	ZSTD_outBuffer out_buf{out_buffer.get(), ZSTD_DStreamOutSize(), 0};
 
 	auto ctx = ZSTD_createDStream();
@@ -75,17 +80,21 @@ void archive_data::unpack(std::ostream & into) {
 
 	for(;;) {
 		const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
-		if(ZSTD_isError(res)) {
-			into << "<<Error: " << ZSTD_getErrorName(res) << ">>\n";
-			return;
-		}
+		if(ZSTD_isError(res))
+			return E_BAD_ARCHIVE;
 
 		into.write(out_buffer.get(), out_buf.pos);
+		unpacked_len += out_buf.pos;
+		if(data_process_callback)
+			if(!data_process_callback(&file[0], out_buf.pos))
+				return E_EABORTED;
 		out_buf.pos = 0;
 
 		if(res == 0)
 			break;
 	}
+
+	return 0;
 }
 
 void archive_data::load_contents() {

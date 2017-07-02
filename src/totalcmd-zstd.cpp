@@ -28,8 +28,16 @@
 #include "wcxapi.h"
 
 #include "data.hpp"
+#include "quickscope_wrapper.hpp"
 #include "util.hpp"
+#include <cstdio>
 #include <cstring>
+#include <memory>
+#include <zstd/zstd.h>
+
+
+/// SetProcessDataProc() is called with garbage hArcData, so we have to save this statically.
+static tProcessDataProc data_process_callback = nullptr;
 
 
 extern "C" WCX_API HANDLE STDCALL OpenArchive(tOpenArchiveData * ArchiveData) {
@@ -44,12 +52,15 @@ extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderD
 		return E_END_ARCHIVE;
 
 	const auto archtime = file_mod_time(static_cast<archive_data *>(hArcData)->file.c_str());
+	int unpacked_size   = static_cast<archive_data *>(hArcData)->unpacked_size();
+	if(unpacked_size == 0)
+		unpacked_size = -1;
 
 	memset(HeaderData, 0, sizeof(*HeaderData));
 	std::strcpy(HeaderData->ArcName, static_cast<archive_data *>(hArcData)->derive_archive_name());
 	std::strcpy(HeaderData->FileName, static_cast<archive_data *>(hArcData)->derive_contained_name().c_str());
 	HeaderData->PackSize = static_cast<archive_data *>(hArcData)->size();
-	HeaderData->UnpSize  = static_cast<archive_data *>(hArcData)->unpacked_size();
+	HeaderData->UnpSize  = unpacked_size;
 	HeaderData->FileTime = totalcmd_time(*std::localtime(&archtime));
 	static_cast<archive_data *>(hArcData)->log << "ReadHeader(" << hArcData << "): PackSize=" << HeaderData->PackSize << "; UnpSize=" << HeaderData->UnpSize
 	                                           << "; FileTime=" << HeaderData->FileTime << "; FileName=" << HeaderData->FileName << '\n';
@@ -60,19 +71,20 @@ extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderD
 extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char * DestPath, char * DestName) {
 	switch(Operation) {
 		case PK_SKIP:
-			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_SKIP);\n";
+			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_SKIP);" << std::endl;
 			break;
 		case PK_TEST:
-			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_TEST);\n";
+			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_TEST);" << std::endl;
 			break;
 		case PK_EXTRACT: {
 			std::string path = DestName;
 			if(DestPath)
 				path.insert(0, DestPath);
 
-			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_EXTRACT, path=\"" << path << "\");\n";
+			static_cast<archive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_EXTRACT, path=\"" << path
+			                                           << "\"): size=" << static_cast<archive_data *>(hArcData)->size() << ";" << std::endl;
 			std::ofstream out(path, std::ios::binary);
-			static_cast<archive_data *>(hArcData)->unpack(out);
+			return static_cast<archive_data *>(hArcData)->unpack(out);
 		} break;
 	}
 
@@ -85,21 +97,83 @@ extern "C" WCX_API int STDCALL CloseArchive(HANDLE hArcData) {
 	return 0;
 }
 
-extern "C" WCX_API void STDCALL SetChangeVolProc(HANDLE hArcData, tChangeVolProc pChangeVolProc1) {
-	static_cast<archive_data *>(hArcData)->log << "SetChangeVolProc(" << hArcData << ", pChangeVolProc1=" << reinterpret_cast<void *>(pChangeVolProc1) << ");\n";
+
+extern "C" WCX_API int STDCALL PackFiles(char * PackedFile, char *, char * SrcPath, char * AddList, int Flags) {
+	if(/*Flags & PK_PACK_SAVE_PATHS ||*/ Flags & PK_PACK_ENCRYPT)
+		return E_NOT_SUPPORTED;
+
+	const auto in_buf_size  = ZSTD_CStreamInSize();
+	const auto out_buf_size = ZSTD_CStreamOutSize();
+	auto in_buffer          = std::make_unique<char[]>(in_buf_size);
+	auto out_buffer         = std::make_unique<char[]>(out_buf_size);
+	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, 0};
+	ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
+
+	auto ctx = ZSTD_createCStream();
+	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeCStream(ctx); }};
+	ZSTD_initCStream(ctx, ZSTD_maxCLevel());
+
+	// We don't specify PK_CAPS_MULTIPLE in GetPackerCaps() so we'll only ever get one file in AddList.
+	std::string path = SrcPath;
+	path += AddList;
+
+	{
+		std::ifstream in(path, std::ios::binary);
+		std::ofstream out(PackedFile, std::ios::binary);
+
+		for(int i = 0;; ++i) {
+			in.read(in_buffer.get(), in_buf_size);
+			const auto read = in.gcount();
+			if(read == 0)
+				break;
+			in_buf.size = read;
+			in_buf.pos  = 0;
+
+			const auto res = ZSTD_compressStream(ctx, &out_buf, &in_buf);
+
+			if(ZSTD_isError(res))
+				return E_ECREATE;
+
+			out.write(out_buffer.get(), out_buf.pos);
+			out_buf.pos = 0;
+
+			if(data_process_callback)
+				if(!data_process_callback(AddList, read))
+					return E_EABORTED;
+		}
+
+		for(;;) {
+			const auto res = ZSTD_endStream(ctx, &out_buf);
+			if(ZSTD_isError(res))
+				return E_ECREATE;
+
+			out.write(out_buffer.get(), out_buf.pos);
+			out_buf.pos = 0;
+
+			if(res == 0)
+				break;
+		}
+	}
+
+	if(Flags & PK_PACK_MOVE_FILES)
+		std::remove(path.c_str());
+
+	return 0;
 }
 
-extern "C" WCX_API void STDCALL SetProcessDataProc(HANDLE hArcData, tProcessDataProc pProcessDataProc1) {
-	static_cast<archive_data *>(hArcData)->log << "SetProcessDataProc(" << hArcData << ", pProcessDataProc1=" << reinterpret_cast<void *>(pProcessDataProc1)
-	                                           << ");\n";
+extern "C" WCX_API void STDCALL SetChangeVolProc(HANDLE, tChangeVolProc) {}
+
+extern "C" WCX_API void STDCALL SetProcessDataProc(HANDLE hArcData, tProcessDataProc pProcessDataProc) {
+	if(hArcData == nullptr || hArcData == reinterpret_cast<HANDLE>(0xffffffffffffffffull))
+		data_process_callback = pProcessDataProc;
+	else
+		static_cast<archive_data *>(hArcData)->data_process_callback = pProcessDataProc;
 }
 
 extern "C" WCX_API BOOL STDCALL CanYouHandleThisFile(char * FileName) {
-	std::ofstream("t:/asdf.log", std::ios::app) << "CanYouHandleThisFile(" << FileName << ")=" << verify_magic(FileName) << ";" << std::endl;
 	return verify_magic(FileName);
 }
 
 extern "C" WCX_API int STDCALL GetPackerCaps() {
-	std::ofstream("t:/fdsa.log", std::ios::app) << "GetPackerCaps();" << std::endl;
-	return PK_CAPS_BY_CONTENT;
+	return PK_CAPS_NEW | PK_CAPS_BY_CONTENT | PK_CAPS_SEARCHTEXT;
 }

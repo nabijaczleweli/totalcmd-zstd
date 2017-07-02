@@ -31,7 +31,7 @@
 
 
 int totalcmd_time(std::tm from) {
-	return ((from.tm_year + 1900) - 1980) << 25 | (from.tm_mon + 1) << 21 | (from.tm_yday + 1) << 16 | from.tm_hour << 11 | from.tm_min << 5 | from.tm_sec / 2;
+	return ((from.tm_year + 1900) - 1980) << 25 | (from.tm_mon + 1) << 21 | from.tm_mday << 16 | from.tm_hour << 11 | from.tm_min << 5 | from.tm_sec / 2;
 }
 
 std::time_t file_mod_time(const char * fname) {

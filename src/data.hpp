@@ -24,6 +24,7 @@
 
 
 #include <fstream>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,7 @@ public:
 	std::ofstream log;
 	std::string file;
 	bool file_shown;
+	std::function<int(char * FileName, int Size)> data_process_callback;
 
 private:
 	std::size_t file_len;
@@ -47,7 +49,7 @@ public:
 	std::string derive_contained_name() const;
 	std::size_t size();
 	std::size_t unpacked_size();
-	void unpack(std::ostream & into);
+	int unpack(std::ostream & into);
 
 private:
 	void load_contents();

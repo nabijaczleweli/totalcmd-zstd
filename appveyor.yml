@@ -23,7 +23,7 @@ build_script:
   - cp out\totalcmd-zstd.wcx64 totalcmd-zstd-v0.1.0\totalcmd-zstd.wcx64
   - strip --strip-all --remove-section=.comment --remove-section=.note totalcmd-zstd-v0.1.0\totalcmd-zstd.wcx64
   - sed "s/#VERSION#/v0.1.0/" pluginst.inf > totalcmd-zstd-v0.1.0\pluginst.inf
-  - zip totalcmd-zstd-v0.1.0.zip totalcmd-zstd-v0.1.0/*
+  - zip -r9j totalcmd-zstd-v0.1.0.zip totalcmd-zstd-v0.1.0
 
 test: off
 
