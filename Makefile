@@ -23,20 +23,21 @@
 include configMakefile
 
 
-LDAR := $(PIC) $(foreach l,zstd,-L$(BLDDIR)$(l)) $(foreach dll,zstd,-l$(dll))
-INCAR := $(foreach l,totalcmd-wcx-api,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
-VERAR := $(foreach l,TOTALCMD_ZSTD,-D$(l)_VERSION='$($(l)_VERSION)')
+LDAR := $(PIC) $(foreach l,zstd whereami-cpp,-L$(BLDDIR)$(l)) $(foreach dll,zstd whereami++,-l$(dll))
+INCAR := $(foreach l,$(foreach l,whereami-cpp,$(l)/include) totalcmd-wcx-api jsonpp,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
+VERAR := $(foreach l,TOTALCMD_ZSTD WHEREAMI_CPP JSONPP,-D$(l)_VERSION='$($(l)_VERSION)')
 SOURCES := $(sort $(wildcard src/*.cpp src/**/*.cpp src/**/**/*.cpp src/**/**/**/*.cpp))
 
-.PHONY : all clean zstd wcx
+.PHONY : all clean zstd whereami-cpp wcx
 
-all : zstd wcx
+all : zstd whereami-cpp wcx
 
 clean :
 	rm -rf $(OUTDIR)
 
 wcx : $(OUTDIR)totalcmd-zstd$(WCX)
 zstd : $(BLDDIR)zstd/libzstd$(ARCH) $(BLDDIR)zstd/include/zstd/zstd.h
+whereami-cpp : $(BLDDIR)whereami-cpp/libwhereami++$(ARCH)
 
 
 $(OUTDIR)totalcmd-zstd$(WCX) : $(subst $(SRCDIR),$(OBJDIR),$(subst .cpp,$(OBJ),$(SOURCES)))
@@ -49,6 +50,9 @@ $(BLDDIR)zstd/libzstd$(ARCH) : $(subst ext/zstd/lib,$(BLDDIR)zstd/obj,$(subst .c
 $(BLDDIR)zstd/include/zstd/zstd.h : $(wildcard ext/zstd/lib/*.h ext/zstd/lib/common/*.h ext/zstd/lib/compress/*.h ext/zstd/lib/decompress/*.h)
 	@mkdir -p $(foreach incfile,$(subst ext/zstd/lib,$(BLDDIR)zstd/include/zstd,$^),$(abspath $(dir $(incfile))))
 	$(foreach incfile,$^,cp $(incfile) $(subst ext/zstd/lib,$(BLDDIR)zstd/include/zstd,$(incfile));)
+
+$(BLDDIR)whereami-cpp/libwhereami++$(ARCH) : ext/whereami-cpp/Makefile
+	$(MAKE) -C$(dir $^) BUILD=$(abspath $(dir $@)) stlib
 
 
 $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
