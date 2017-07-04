@@ -21,9 +21,10 @@
 
 
 #include "util.hpp"
-#include <sys/stat.h>
 #include <fstream>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <whereami++.hpp>
 #include <zstd/zstd.h>
 #ifndef _WIN32
 #include <unistd.h>
@@ -44,4 +45,8 @@ bool verify_magic(const char * fname) {
 	char buf[4];
 	std::ifstream(fname, std::ios::binary).read(buf, sizeof buf);
 	return ZSTD_isFrame(buf, sizeof buf);
+}
+
+std::string config_file() {
+	return whereami::module_dir() + "/totalcmd-zstd.json";
 }

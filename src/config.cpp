@@ -20,25 +20,40 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-#pragma once
+#include "config.hpp"
+#include "util.hpp"
+#include <algorithm>
+#include <fstream>
+#include <jsonpp/parser.hpp>
+#include <map>
+#include <zstd/zstd.h>
 
 
-#include <ctime>
-#include <string>
+configuration::configuration() {
+	std::ifstream in(config_file());
+	if(in.is_open()) {
+		json::value cfg;
+		try {
+			json::parse(in, cfg);
+		} catch(...) {
+			return;
+		}
 
+		auto && clvl = cfg["compression‐level"];
+		if(clvl.is<std::size_t>())
+			compression_level = clvl.as<std::size_t>();
+	}
+}
 
-/// FileTime contains the date and the time of the file’s last update. Use the following algorithm to set the value:
-///
-/// FileTime = (year - 1980) << 25 | month << 21 | day << 16 | hour << 11 | minute << 5 | second / 2;
-///
-/// Make sure that:
-///   * year is in the four digit format between 1980 and 2100
-///   * month is a number between 1 and 12
-///   * hour is in the 24 hour format
-int totalcmd_time(std::tm from);
+configuration::~configuration() {
+	std::size_t max_clevel = ZSTD_maxCLevel();
+	compression_level = std::min(compression_level, max_clevel);
 
-std::time_t file_mod_time(const char * fname);
-
-bool verify_magic(const char * fname);
-
-std::string config_file();
+	std::ofstream out(config_file());
+	std::map<std::string, json::value> obj{
+	    {"compression‐level", static_cast<double>(compression_level)},
+	    {"compression-level-comment",
+	     "Integer between 0 (store) and " + std::to_string(max_clevel) + " (ultra). Values ≥20 should be used with caution, as they require more memory."},
+	};
+	json::dump(out, obj);
+}

@@ -21,12 +21,16 @@
 
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
+
+#include <shellapi.h>
 
 #include "wcxhead.h"
 #define WCX_PLUGIN_EXPORTS
 #include "wcxapi.h"
 
+#include "config.hpp"
 #include "data.hpp"
 #include "quickscope_wrapper.hpp"
 #include "util.hpp"
@@ -109,9 +113,10 @@ extern "C" WCX_API int STDCALL PackFiles(char * PackedFile, char *, char * SrcPa
 	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, 0};
 	ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
+	configuration cfg;
 	auto ctx = ZSTD_createCStream();
 	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeCStream(ctx); }};
-	ZSTD_initCStream(ctx, ZSTD_maxCLevel());
+	ZSTD_initCStream(ctx, cfg.compression_level);
 
 	// We don't specify PK_CAPS_MULTIPLE in GetPackerCaps() so we'll only ever get one file in AddList.
 	std::string path = SrcPath;
@@ -175,5 +180,19 @@ extern "C" WCX_API BOOL STDCALL CanYouHandleThisFile(char * FileName) {
 }
 
 extern "C" WCX_API int STDCALL GetPackerCaps() {
-	return PK_CAPS_NEW | PK_CAPS_BY_CONTENT | PK_CAPS_SEARCHTEXT;
+	return PK_CAPS_NEW | PK_CAPS_OPTIONS | PK_CAPS_BY_CONTENT | PK_CAPS_SEARCHTEXT;
+}
+
+extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
+	configuration{};  // Force creation if nonexistant
+
+	auto cfg_f = config_file();
+	if(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {  // 0x2A = OK
+		cfg_f[cfg_f.find_last_of("\\/")] = '\0';
+		if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2Aa)) {
+			cfg_f[cfg_f.find('\0')] = '/';
+			MessageBox(Parent, ("Failed to open and/or navigate to configuration file\"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration",
+			           MB_ICONWARNING | MB_OK);
+		}
+	}
 }

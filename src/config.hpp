@@ -23,22 +23,12 @@
 #pragma once
 
 
-#include <ctime>
-#include <string>
+#include <cstdint>
 
 
-/// FileTime contains the date and the time of the file’s last update. Use the following algorithm to set the value:
-///
-/// FileTime = (year - 1980) << 25 | month << 21 | day << 16 | hour << 11 | minute << 5 | second / 2;
-///
-/// Make sure that:
-///   * year is in the four digit format between 1980 and 2100
-///   * month is a number between 1 and 12
-///   * hour is in the 24 hour format
-int totalcmd_time(std::tm from);
+struct configuration {
+	std::size_t compression_level = 1;
 
-std::time_t file_mod_time(const char * fname);
-
-bool verify_magic(const char * fname);
-
-std::string config_file();
+	configuration();
+	~configuration();
+};
