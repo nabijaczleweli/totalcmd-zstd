@@ -21,11 +21,15 @@
 
 
 ifeq "$(OS)" "Windows_NT"
-	WCX := .wcx64
 	PIC :=
 else
-	WCX := .wcx64
 	PIC := -fPIC
+endif
+
+ifneq "$(Platform)" ""
+	WCX := .wcx$(subst 86,,$(subst x,,$(Platform)))
+else
+	WCX := .wcx$(subst 32,,$(shell getconf LONG_BIT))
 endif
 
 TOTALCMD_ZSTD_VERSION := "$(patsubst v%,%,$(shell git describe --tags --abbrev=0))"

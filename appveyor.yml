@@ -2,7 +2,9 @@ version: 0.1.0-{build}
 
 skip_tags: false
 
-platform: x64
+platform:
+  - x64
+  - x86
 configuration: Release
 
 clone_folder: C:\totalcmd-zstd
@@ -13,26 +15,29 @@ install:
   - bash -lc "pacman --needed --noconfirm -Sy pacman-mirrors"
   - bash -lc "pacman --noconfirm -Syyu"
   - bash -lc "pacman --noconfirm -Su zip"
+  -
+  - if "%Platform:x=%"=="64" (set BITNESS=64) else (set BITNESS=32)
+  - if "%BITNESS%"=="64" (set WCX=wcx64) else (set WCX=wcx)
 
 build: off
 build_script:
   - git submodule update --init --recursive
   - make
   -
-  - mkdir totalcmd-zstd-v0.1.0
-  - cp out\totalcmd-zstd.wcx64 totalcmd-zstd-v0.1.0\totalcmd-zstd.wcx64
-  - strip --strip-all --remove-section=.comment --remove-section=.note totalcmd-zstd-v0.1.0\totalcmd-zstd.wcx64
-  - sed "s/#VERSION#/v0.1.0/" pluginst.inf > totalcmd-zstd-v0.1.0\pluginst.inf
-  - zip -r9j totalcmd-zstd-v0.1.0.zip totalcmd-zstd-v0.1.0
+  - mkdir totalcmd-zstd-v0.1.0-%BITNESS%bit
+  - cp out\totalcmd-zstd.%WCX% totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
+  - strip --strip-all --remove-section=.comment --remove-section=.note totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
+  - sed -e "s/#VERSION#/v0.1.0/" -e "s/#BITNESS#/%BITNESS%/" pluginst.inf > totalcmd-zstd-v0.1.0-%BITNESS%bit\pluginst.inf
+  - zip -r9j totalcmd-zstd-v0.1.0-%BITNESS%bit.zip totalcmd-zstd-v0.1.0-%BITNESS%bit
 
 test: off
 
 artifacts:
-  - path: totalcmd-zstd-v0.1.0.zip
+  - path: totalcmd-zstd-v0.1.0-%BITNESS%bit.zip
 
 deploy:
   provider: GitHub
-  artifact: totalcmd-zstd-v0.1.0.zip
+  artifact: totalcmd-zstd-v0.1.0-%BITNESS%bit.zip
   auth_token:
     secure: +ojhitnhqsAMTn/yVxUyiAYPT0RAz77+QJcLNVxm98LASuoKZufsBxJYMvt24OjY
   on:

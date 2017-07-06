@@ -1,5 +1,5 @@
 [plugininstall]
-description=zstd plugin #VERSION# 64bit
+description=zstd plugin #VERSION# #BITNESS#bit
 type=wcx
 file=totalcmd-zstd.wcx
 defaultdir=totalcmd-zstd
