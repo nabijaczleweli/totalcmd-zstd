@@ -10,11 +10,14 @@ configuration: Release
 clone_folder: C:\totalcmd-zstd
 
 install:
-  - set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+  - set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;C:\depends;%PATH%
   -
   - bash -lc "pacman --needed --noconfirm -Sy pacman-mirrors"
   - bash -lc "pacman --noconfirm -Syyu"
   - bash -lc "pacman --noconfirm -Su zip"
+  -
+  - curl -SOL "http://www.dependencywalker.com/depends22_x86.zip"
+  - unzip -d C:\depends depends22_x86.zip
   -
   - if "%Platform:x=%"=="64" (set BITNESS=64) else (set BITNESS=32)
   - if "%BITNESS%"=="64" (set WCX=wcx64) else (set WCX=wcx)
@@ -28,6 +31,9 @@ build_script:
   - cp out\totalcmd-zstd.%WCX% totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
   - strip --strip-all --remove-section=.comment --remove-section=.note totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
   - sed -e "s/#VERSION#/v0.1.0/" -e "s/#BITNESS#/%BITNESS%/" pluginst.inf > totalcmd-zstd-v0.1.0-%BITNESS%bit\pluginst.inf
+  - start /w depends -f1 -ocout\totalcmd-zstd.csv -c out\totalcmd-zstd.%WCX%
+  - awk -F, "/mingw64/ {print(tolower($2))}" out\totalcmd-zstd.csv | xargs cp -t totalcmd-zstd-v0.1.0-%BITNESS%bit
+  - cp LICENSE README.md totalcmd-zstd-v0.1.0-%BITNESS%bit
   - zip -r9j totalcmd-zstd-v0.1.0-%BITNESS%bit.zip totalcmd-zstd-v0.1.0-%BITNESS%bit
 
 test: off
