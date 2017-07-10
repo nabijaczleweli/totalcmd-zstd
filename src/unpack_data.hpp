@@ -29,7 +29,7 @@
 #include <vector>
 
 
-class archive_data {
+class unarchive_data {
 public:
 	std::ofstream log;
 	std::string file;
@@ -43,7 +43,7 @@ private:
 
 
 public:
-	archive_data(const char * fname);
+	unarchive_data(const char * fname);
 
 	const char * derive_archive_name() const;
 	std::string derive_contained_name() const;

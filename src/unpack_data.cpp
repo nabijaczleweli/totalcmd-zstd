@@ -24,20 +24,20 @@
 #define NOMINMAX
 #include <windows.h>
 
-#include "data.hpp"
 #include "quickscope_wrapper.hpp"
+#include "unpack_data.hpp"
 #include <memory>
 #include <wcxhead.h>
 #include <zstd/zstd.h>
 
 
-archive_data::archive_data(const char * fname) : log("t:/totalcmd-zstd.log", std::ios::app), file(fname), file_shown(false), file_len(0), unpacked_len(0) {}
+unarchive_data::unarchive_data(const char * fname) : log("t:/totalcmd-zstd.log", std::ios::app), file(fname), file_shown(false), file_len(0), unpacked_len(0) {}
 
-const char * archive_data::derive_archive_name() const {
+const char * unarchive_data::derive_archive_name() const {
 	return file.c_str() + file.find_last_of("\\/") + 1;
 }
 
-std::string archive_data::derive_contained_name() const {
+std::string unarchive_data::derive_contained_name() const {
 	auto start              = file.find_last_of("\\/") + 1;
 	auto end                = file.rfind('.');
 	auto is_zstd_extension  = file.find("zstd", end) != std::string::npos;
@@ -51,13 +51,13 @@ std::string archive_data::derive_contained_name() const {
 		return file.substr(start);
 }
 
-std::size_t archive_data::size() {
+std::size_t unarchive_data::size() {
 	if(!file_len)
 		file_len = std::ifstream(file, std::ios::ate | std::ios::binary).tellg();
 	return file_len;
 }
 
-std::size_t archive_data::unpacked_size() {
+std::size_t unarchive_data::unpacked_size() {
 	if(!unpacked_len) {
 		load_contents();
 		unpacked_len = ZSTD_getFrameContentSize(contents.data(), file_len);
@@ -67,7 +67,7 @@ std::size_t archive_data::unpacked_size() {
 	return unpacked_len;
 }
 
-int archive_data::unpack(std::ostream & into) {
+int unarchive_data::unpack(std::ostream & into) {
 	load_contents();
 	unpacked_len = 0;
 
@@ -98,7 +98,7 @@ int archive_data::unpack(std::ostream & into) {
 	return 0;
 }
 
-void archive_data::load_contents() {
+void unarchive_data::load_contents() {
 	if(!contents.empty())
 		return;
 
