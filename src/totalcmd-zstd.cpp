@@ -189,7 +189,7 @@ extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
 	auto cfg_f = config_file();
 	if(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {  // 0x2A = OK
 		cfg_f[cfg_f.find_last_of("\\/")] = '\0';
-		if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2Aa)) {
+		if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
 			cfg_f[cfg_f.find('\0')] = '/';
 			MessageBox(Parent, ("Failed to open and/or navigate to configuration file\"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration",
 			           MB_ICONWARNING | MB_OK);

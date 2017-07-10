@@ -54,6 +54,11 @@ configuration::~configuration() {
 	    {"compression‐level", static_cast<double>(compression_level)},
 	    {"compression-level-comment",
 	     "Integer between 0 (store) and " + std::to_string(max_clevel) + " (ultra). Values ≥20 should be used with caution, as they require more memory."},
+	    {"‌", ""},
+	    {"‌totalcmd-zstd", "version " TOTALCMD_ZSTD_VERSION ", found at https://github.com/nabijaczleweli/totalcmd-zstd"},
+	    {"‌‌zstd", "version " ZSTD_VERSION_STRING ", found at https://github.com/facebook/zstd"},
+	    {"‌‌‌jsonpp", "version " JSONPP_VERSION ", found at https://github.com/Rapptz/jsonpp"},
+	    {"‌‌‌‌whereami-cpp", "version " WHEREAMI_CPP_VERSION ", found at https://github.com/nabijaczleweli/whereami-cpp"},
 	};
 	json::dump(out, obj);
 }
