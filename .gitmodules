@@ -9,3 +9,4 @@
 [submodule "ext/jsonpp"]
 	path = ext/jsonpp
 	url = https://github.com/Rapptz/jsonpp.git
+	branch = develop
