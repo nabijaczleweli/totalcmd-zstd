@@ -41,7 +41,7 @@ configuration::configuration() {
 
 		auto && clvl = cfg["compression‐level"];
 		if(clvl.is<std::size_t>())
-			compression_level = clvl.as<std::size_t>();
+			compression_level = std::min(clvl.as<std::size_t>(), static_cast<std::size_t>(ZSTD_maxCLevel()));
 	}
 }
 

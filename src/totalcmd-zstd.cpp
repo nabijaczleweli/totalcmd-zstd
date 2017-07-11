@@ -31,6 +31,7 @@
 #include "wcxapi.h"
 
 #include "config.hpp"
+#include "pack_data.hpp"
 #include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
 #include "util.hpp"
@@ -180,7 +181,7 @@ extern "C" WCX_API BOOL STDCALL CanYouHandleThisFile(char * FileName) {
 }
 
 extern "C" WCX_API int STDCALL GetPackerCaps() {
-	return PK_CAPS_NEW | PK_CAPS_OPTIONS | PK_CAPS_BY_CONTENT | PK_CAPS_SEARCHTEXT;
+	return PK_CAPS_NEW | PK_CAPS_OPTIONS | PK_CAPS_MEMPACK | PK_CAPS_BY_CONTENT | PK_CAPS_SEARCHTEXT;
 }
 
 extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
@@ -195,4 +196,34 @@ extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
 			           MB_ICONWARNING | MB_OK);
 		}
 	}
+}
+
+extern "C" WCX_API HANDLE STDCALL StartMemPack(int, char *) {
+	// This has the added benefit of 0=error, so we'll never NPE
+	return new(std::nothrow) archive_data;
+}
+
+extern "C" WCX_API int STDCALL PackToMem(HANDLE hMemPack, char * BufIn, int InLen, int * Taken, char * BufOut, int OutLen, int * Written, int) {
+	if(InLen) {
+		const auto out = static_cast<archive_data *>(hMemPack)->add_data(BufIn, InLen, BufOut, OutLen);
+		if(out.first)
+			return E_EWRITE;
+		else
+			std::tie(*Taken, *Written) = out.second;
+	} else {
+		const auto out = static_cast<archive_data *>(hMemPack)->finish(BufOut, OutLen);
+		if(std::get<0>(out))
+			return E_EWRITE;
+		else if(std::get<1>(out)) {
+			std::tie(*Taken, *Written) = std::make_pair(0, 0);
+			return MEMPACK_DONE;
+		} else
+			std::tie(*Taken, *Written) = std::make_pair(0, std::get<2>(out));
+	}
+	return MEMPACK_OK;
+}
+
+extern "C" WCX_API int STDCALL DoneMemPack(HANDLE hMemPack) {
+	delete static_cast<archive_data *>(hMemPack);
+	return 0;
 }

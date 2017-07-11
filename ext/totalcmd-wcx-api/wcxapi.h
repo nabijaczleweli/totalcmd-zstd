@@ -113,6 +113,28 @@ WCX_API BOOL STDCALL
 		char*FileName
 		);
 
+WCX_API HANDLE STDCALL
+	StartMemPack (
+		int Options,
+		char*FileName
+		);
+
+WCX_API int STDCALL
+	PackToMem (
+		HANDLE hMemPack,
+		char*BufIn,
+		int InLen,
+		int*Taken,
+		char*BufOut,
+		int OutLen,
+		int*Written,
+		int SeekBy
+		);
+
+WCX_API int STDCALL
+	DoneMemPack (
+		HANDLE hMemPack
+		);
 
 #ifdef __cplusplus
 }
