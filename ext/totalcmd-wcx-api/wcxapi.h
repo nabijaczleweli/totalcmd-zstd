@@ -136,6 +136,11 @@ WCX_API int STDCALL
 		HANDLE hMemPack
 		);
 
+WCX_API int STDCALL
+	GetBackgroundFlags(
+		void
+		);
+
 #ifdef __cplusplus
 }
 #endif

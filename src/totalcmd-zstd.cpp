@@ -227,3 +227,7 @@ extern "C" WCX_API int STDCALL DoneMemPack(HANDLE hMemPack) {
 	delete static_cast<archive_data *>(hMemPack);
 	return 0;
 }
+
+extern "C" WCX_API int STDCALL GetBackgroundFlags(void) {
+	return BACKGROUND_UNPACK | BACKGROUND_PACK | BACKGROUND_MEMPACK;
+}
