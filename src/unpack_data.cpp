@@ -26,13 +26,14 @@
 
 #include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
-#include <memory>
 #include <algorithm>
+#include <fstream>
+#include <memory>
 #include <wcxhead.h>
 #include <zstd/zstd.h>
 
 
-unarchive_data::unarchive_data(const char * fname) : log("t:/totalcmd-zstd.log", std::ios::app), file(fname), file_shown(false), file_len(0), unpacked_len(0) {}
+unarchive_data::unarchive_data(const char * fname) : file(fname), file_shown(false), file_len(0), unpacked_len(0) {}
 
 const char * unarchive_data::derive_archive_name() const {
 	return file.c_str() + file.find_last_of("\\/") + 1;

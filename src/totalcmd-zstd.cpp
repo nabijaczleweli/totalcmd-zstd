@@ -37,6 +37,7 @@
 #include "util.hpp"
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <zstd/zstd.h>
 
@@ -46,9 +47,9 @@ static tProcessDataProc data_process_callback = nullptr;
 
 
 extern "C" WCX_API HANDLE STDCALL OpenArchive(tOpenArchiveData * ArchiveData) {
-	auto out = new unarchive_data(ArchiveData->ArcName);
-	out->log << "OpenArchive(" << out << "): ArcName=\"" << ArchiveData->ArcName << "\"; OpenMode=" << ArchiveData->OpenMode
-	         << "; OpenResult=" << ArchiveData->OpenResult << '\n';
+	auto out = new(std::nothrow) unarchive_data(ArchiveData->ArcName);
+	if(!out)
+		ArchiveData->OpenResult = E_NO_MEMORY;
 	return out;
 }
 
@@ -64,11 +65,9 @@ extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderD
 	memset(HeaderData, 0, sizeof(*HeaderData));
 	std::strcpy(HeaderData->ArcName, static_cast<unarchive_data *>(hArcData)->derive_archive_name());
 	std::strcpy(HeaderData->FileName, static_cast<unarchive_data *>(hArcData)->derive_contained_name().c_str());
-	HeaderData->PackSize = static_cast<unarchive_data *>(hArcData)->size();
-	HeaderData->UnpSize  = unpacked_size;
-	HeaderData->FileTime = totalcmd_time(*std::localtime(&archtime));
-	static_cast<unarchive_data *>(hArcData)->log << "ReadHeader(" << hArcData << "): PackSize=" << HeaderData->PackSize << "; UnpSize=" << HeaderData->UnpSize
-	                                             << "; FileTime=" << HeaderData->FileTime << "; FileName=" << HeaderData->FileName << '\n';
+	HeaderData->PackSize                                = static_cast<unarchive_data *>(hArcData)->size();
+	HeaderData->UnpSize                                 = unpacked_size;
+	HeaderData->FileTime                                = totalcmd_time(*std::localtime(&archtime));
 	static_cast<unarchive_data *>(hArcData)->file_shown = true;
 	return 0;
 }
@@ -76,18 +75,14 @@ extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderD
 extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char * DestPath, char * DestName) {
 	switch(Operation) {
 		case PK_SKIP:
-			static_cast<unarchive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_SKIP);" << std::endl;
 			break;
 		case PK_TEST:
-			static_cast<unarchive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_TEST);" << std::endl;
 			break;
 		case PK_EXTRACT: {
 			std::string path = DestName;
 			if(DestPath)
 				path.insert(0, DestPath);
 
-			static_cast<unarchive_data *>(hArcData)->log << "ProcessFile(" << hArcData << ", Operation=PK_EXTRACT, path=\"" << path
-			                                             << "\"): size=" << static_cast<unarchive_data *>(hArcData)->size() << ";" << std::endl;
 			std::ofstream out(path, std::ios::binary);
 			return static_cast<unarchive_data *>(hArcData)->unpack(out);
 		} break;
@@ -97,7 +92,6 @@ extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char 
 }
 
 extern "C" WCX_API int STDCALL CloseArchive(HANDLE hArcData) {
-	static_cast<unarchive_data *>(hArcData)->log << "CloseArchive(" << hArcData << ");\n\n";
 	delete static_cast<unarchive_data *>(hArcData);
 	return 0;
 }
@@ -127,7 +121,7 @@ extern "C" WCX_API int STDCALL PackFiles(char * PackedFile, char *, char * SrcPa
 		std::ifstream in(path, std::ios::binary);
 		std::ofstream out(PackedFile, std::ios::binary);
 
-		for(int i = 0;; ++i) {
+		for(;;) {
 			in.read(in_buffer.get(), in_buf_size);
 			const auto read = in.gcount();
 			if(read == 0)

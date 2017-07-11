@@ -23,7 +23,6 @@
 #pragma once
 
 
-#include <fstream>
 #include <functional>
 #include <string>
 #include <vector>
@@ -31,7 +30,6 @@
 
 class unarchive_data {
 public:
-	std::ofstream log;
 	std::string file;
 	bool file_shown;
 	std::function<int(char * FileName, int Size)> data_process_callback;
