@@ -27,6 +27,7 @@
 #include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
 #include <memory>
+#include <algorithm>
 #include <wcxhead.h>
 #include <zstd/zstd.h>
 
@@ -38,10 +39,14 @@ const char * unarchive_data::derive_archive_name() const {
 }
 
 std::string unarchive_data::derive_contained_name() const {
+	std::string lowercase_file;
+	lowercase_file.reserve(file.size());
+	std::transform(file.begin(), file.end(), std::back_inserter(lowercase_file), [](char c) { return std::tolower(c); });
+
 	auto start              = file.find_last_of("\\/") + 1;
 	auto end                = file.rfind('.');
-	auto is_zstd_extension  = file.find("zstd", end) != std::string::npos;
-	auto is_tzstd_extension = file.find("tzstd", end) != std::string::npos;
+	auto is_zstd_extension  = lowercase_file.find("zstd", end) != std::string::npos;
+	auto is_tzstd_extension = lowercase_file.find("tzstd", end) != std::string::npos;
 
 	if(is_tzstd_extension)
 		return file.substr(start, end + 1 - start) + "tar";
@@ -89,10 +94,11 @@ int unarchive_data::unpack(std::ostream & into) {
 		if(data_process_callback)
 			if(!data_process_callback(&file[0], out_buf.pos))
 				return E_EABORTED;
-		out_buf.pos = 0;
 
-		if(res == 0)
+		if(res == 0 || out_buf.pos == 0)
 			break;
+
+		out_buf.pos = 0;
 	}
 
 	return 0;
