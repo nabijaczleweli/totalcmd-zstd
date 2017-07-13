@@ -41,4 +41,10 @@ std::time_t file_mod_time(const char * fname);
 
 bool verify_magic(const char * fname);
 
+bool file_exists(const char * fname);
+
 std::string config_file();
+
+std::string totalcmd_config_file();
+
+std::string totalcmd_config_get_editor(const char * totalcmd_cfg_f);

@@ -181,15 +181,24 @@ extern "C" WCX_API int STDCALL GetPackerCaps() {
 extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
 	configuration{};  // Force creation if nonexistant
 
-	auto cfg_f = config_file();
-	if(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {  // 0x2A = OK
-		cfg_f[cfg_f.find_last_of("\\/")] = '\0';
-		if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
-			cfg_f[cfg_f.find('\0')] = '/';
-			MessageBox(Parent, ("Failed to open and/or navigate to configuration file\"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration",
-			           MB_ICONWARNING | MB_OK);
-		}
-	}
+	const auto totalcmd_cfg_f = totalcmd_config_file();
+	std::string totalcmd_editor;
+	if(!totalcmd_cfg_f.empty())
+		totalcmd_editor = totalcmd_config_get_editor(totalcmd_cfg_f.c_str());
+	auto cfg_f        = config_file();
+
+	if(totalcmd_editor.empty() ||
+	   ShellExecute(Parent, "open", totalcmd_editor.c_str(), cfg_f.c_str(), nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A))  // 0x2A = OK
+		if(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A))
+			if(totalcmd_cfg_f.empty() ||
+			   ShellExecute(Parent, "open", totalcmd_cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
+				cfg_f[cfg_f.find_last_of("\\/")] = '\0';
+				if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
+					cfg_f[cfg_f.find('\0')] = '/';
+					MessageBox(Parent, ("Failed to open and/or navigate to configuration file\"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration",
+					           MB_ICONWARNING | MB_OK);
+				}
+			}
 }
 
 extern "C" WCX_API HANDLE STDCALL StartMemPack(int, char *) {
