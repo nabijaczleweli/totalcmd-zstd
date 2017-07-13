@@ -47,7 +47,7 @@ configuration::configuration() {
 
 configuration::~configuration() {
 	std::size_t max_clevel = ZSTD_maxCLevel();
-	compression_level = std::min(compression_level, max_clevel);
+	compression_level      = std::min(compression_level, max_clevel);
 
 	std::ofstream out(config_file());
 	std::map<std::string, json::value> obj{
@@ -59,6 +59,7 @@ configuration::~configuration() {
 	    {"‌‌zstd", "version " ZSTD_VERSION_STRING ", found at https://github.com/facebook/zstd"},
 	    {"‌‌‌jsonpp", "version " JSONPP_VERSION ", found at https://github.com/Rapptz/jsonpp"},
 	    {"‌‌‌‌whereami-cpp", "version " WHEREAMI_CPP_VERSION ", found at https://github.com/nabijaczleweli/whereami-cpp"},
+	    {"‌‌‌‌‌inih", "revision " INIH_VERSION ", found at https://github.com/benhoyt/inih"},
 	};
 	json::dump(out, obj);
 }

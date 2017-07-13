@@ -23,14 +23,14 @@
 include configMakefile
 
 
-LDAR := $(PIC) $(foreach l,zstd whereami-cpp,-L$(BLDDIR)$(l)) $(foreach dll,zstd whereami++,-l$(dll))
-INCAR := $(foreach l,$(foreach l,whereami-cpp,$(l)/include) totalcmd-wcx-api jsonpp,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
-VERAR := $(foreach l,TOTALCMD_ZSTD WHEREAMI_CPP JSONPP,-D$(l)_VERSION='$($(l)_VERSION)')
+LDAR := $(PIC) $(foreach l,zstd whereami-cpp inih,-L$(BLDDIR)$(l)) $(foreach dll,zstd whereami++ inih,-l$(dll))
+INCAR := $(foreach l,$(foreach l,whereami-cpp,$(l)/include) totalcmd-wcx-api jsonpp inih,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
+VERAR := $(foreach l,TOTALCMD_ZSTD WHEREAMI_CPP JSONPP INIH,-D$(l)_VERSION='$($(l)_VERSION)')
 SOURCES := $(sort $(wildcard src/*.cpp src/**/*.cpp src/**/**/*.cpp src/**/**/**/*.cpp))
 
-.PHONY : all clean zstd whereami-cpp wcx
+.PHONY : all clean zstd whereami-cpp inih wcx
 
-all : zstd whereami-cpp wcx
+all : zstd whereami-cpp inih wcx
 
 clean :
 	rm -rf $(OUTDIR)
@@ -38,6 +38,7 @@ clean :
 wcx : $(OUTDIR)totalcmd-zstd$(WCX)
 zstd : $(BLDDIR)zstd/libzstd$(ARCH) $(BLDDIR)zstd/include/zstd/zstd.h
 whereami-cpp : $(BLDDIR)whereami-cpp/libwhereami++$(ARCH)
+inih : $(BLDDIR)inih/libinih$(ARCH)
 
 
 $(OUTDIR)totalcmd-zstd$(WCX) : $(subst $(SRCDIR),$(OBJDIR),$(subst .cpp,$(OBJ),$(SOURCES)))
@@ -54,6 +55,10 @@ $(BLDDIR)zstd/include/zstd/zstd.h : $(wildcard ext/zstd/lib/*.h ext/zstd/lib/com
 $(BLDDIR)whereami-cpp/libwhereami++$(ARCH) : ext/whereami-cpp/Makefile
 	$(MAKE) -C$(dir $^) BUILD=$(abspath $(dir $@)) stlib
 
+$(BLDDIR)inih/libinih$(ARCH) : $(BLDDIR)inih/obj/ini$(OBJ)
+	@mkdir -p $(dir $@)
+	$(AR) crs $@ $^
+
 
 $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
 	@mkdir -p $(dir $@)
@@ -62,3 +67,7 @@ $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
 $(BLDDIR)zstd/obj/%$(OBJ) : ext/zstd/lib/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CCAR) -Iext/zstd/lib -Iext/zstd/lib/common -c -o$@ $^
+
+$(BLDDIR)inih/obj/%$(OBJ) : ext/inih/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CCAR) -DINI_USE_STACK=0 -DINI_MAX_LINE=2048 -c -o$@ $^
