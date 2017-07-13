@@ -10,3 +10,7 @@
 	path = ext/jsonpp
 	url = https://github.com/Rapptz/jsonpp.git
 	branch = develop
+[submodule "ext/inih"]
+	path = ext/inih
+	url = https://github.com/benhoyt/inih
+	branch = r40
