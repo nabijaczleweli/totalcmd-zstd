@@ -27,6 +27,7 @@
 #include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <memory>
 #include <wcxhead.h>
@@ -80,7 +81,7 @@ int unarchive_data::unpack(std::ostream & into) {
 	const auto in_buf_size = ZSTD_DStreamInSize();
 	auto in_buffer         = std::make_unique<char[]>(in_buf_size);
 	auto out_buffer        = std::make_unique<char[]>(ZSTD_DStreamOutSize());
-	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, 0};
+	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, in_buf_size};
 	ZSTD_outBuffer out_buf{out_buffer.get(), ZSTD_DStreamOutSize(), 0};
 
 	auto ctx = ZSTD_createDStream();
@@ -90,11 +91,12 @@ int unarchive_data::unpack(std::ostream & into) {
 	std::ifstream from(file, std::ios::binary);
 
 	for(;;) {
-		if(in_buf.pos != 0 && in_buf.pos != in_buf.size)
-			from.seekg(in_buf.pos - in_buf.size, std::ios::cur);
+		const auto overlap = in_buf.size - in_buf.pos;
+		if(overlap)
+			std::memmove(in_buffer.get(), in_buffer.get() + in_buf.pos, overlap);
 
-		from.read(in_buffer.get(), in_buf_size);
-		in_buf.size = from.gcount();
+		from.read(in_buffer.get() + overlap, in_buf_size - overlap);
+		in_buf.size = from.gcount() + overlap;
 		in_buf.pos  = 0;
 
 		const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
@@ -104,7 +106,7 @@ int unarchive_data::unpack(std::ostream & into) {
 		into.write(out_buffer.get(), out_buf.pos);
 		unpacked_len += out_buf.pos;
 		if(data_process_callback)
-			if(!data_process_callback(&file[0], in_buf.pos))
+			if(!data_process_callback(&file[0], out_buf.pos))
 				return E_EABORTED;
 
 		if(res == 0 || out_buf.pos == 0)
