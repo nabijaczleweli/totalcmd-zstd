@@ -21,19 +21,20 @@ install:
   -
   - if "%Platform:x=%"=="64" (set BITNESS=64) else (set BITNESS=32)
   - if "%BITNESS%"=="64" (set WCX=wcx64) else (set WCX=wcx)
-  - if "%BITNESS%"=="64" (set PLATFORM_EXPANSION=x86_64-w64) else (set PLATFORM_EXPANSION=i686-w64)
+  - if "%BITNESS%"=="64" (set PLATFORM_EXPANSION=x86_64-w64) else (set PLATFORM_EXPANSION=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin\i686-w64)
 
 build: off
 build_script:
   - git submodule update --init --recursive
   - make CXX="%PLATFORM_EXPANSION%-mingw32-g++ -m%BITNESS%" CC="%PLATFORM_EXPANSION%-mingw32-gcc -m%BITNESS%"
   -
+  - if "%BITNESS%"=="32" set PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin;%PATH%
   - mkdir totalcmd-zstd-v0.1.0-%BITNESS%bit
   - cp out\totalcmd-zstd.%WCX% totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
   - strip --strip-all --remove-section=.comment --remove-section=.note totalcmd-zstd-v0.1.0-%BITNESS%bit\totalcmd-zstd.%WCX%
   - sed -e "s/#VERSION#/v0.1.0/" -e "s/#BITNESS#/%BITNESS%/" pluginst.inf > totalcmd-zstd-v0.1.0-%BITNESS%bit\pluginst.inf
   - start /w depends -f1 -ocout\totalcmd-zstd.csv -c out\totalcmd-zstd.%WCX%
-  - awk -F, "/msys64/ {print(tolower($2))}" out\totalcmd-zstd.csv | xargs cp -t totalcmd-zstd-v0.1.0-%BITNESS%bit
+  - awk -F, "/mingw/ {print(tolower($2))}" out\totalcmd-zstd.csv | xargs cp -t totalcmd-zstd-v0.1.0-%BITNESS%bit
   - cp LICENSE README.md totalcmd-zstd-v0.1.0-%BITNESS%bit
   - zip -r9j totalcmd-zstd-v0.1.0-%BITNESS%bit.zip totalcmd-zstd-v0.1.0-%BITNESS%bit
 
