@@ -65,8 +65,9 @@ std::size_t unarchive_data::size() {
 
 std::size_t unarchive_data::unpacked_size() {
 	if(!unpacked_len) {
-		load_contents();
-		unpacked_len = ZSTD_getFrameContentSize(contents.data(), file_len);
+		char frame_header[ZSTD_frameHeaderSize_max];
+		std::ifstream(file, std::ios::binary).read(frame_header, sizeof frame_header / sizeof *frame_header);
+		unpacked_len = ZSTD_getFrameContentSize(frame_header, sizeof frame_header / sizeof *frame_header);
 		if(unpacked_len == ZSTD_CONTENTSIZE_UNKNOWN || unpacked_len == ZSTD_CONTENTSIZE_ERROR)
 			unpacked_len = 0;
 	}
@@ -74,18 +75,28 @@ std::size_t unarchive_data::unpacked_size() {
 }
 
 int unarchive_data::unpack(std::ostream & into) {
-	load_contents();
 	unpacked_len = 0;
 
-	auto out_buffer = std::make_unique<char[]>(ZSTD_DStreamOutSize());
-	ZSTD_inBuffer in_buf{contents.data(), size(), 0};
+	const auto in_buf_size = ZSTD_DStreamInSize();
+	auto in_buffer         = std::make_unique<char[]>(in_buf_size);
+	auto out_buffer        = std::make_unique<char[]>(ZSTD_DStreamOutSize());
+	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, 0};
 	ZSTD_outBuffer out_buf{out_buffer.get(), ZSTD_DStreamOutSize(), 0};
 
 	auto ctx = ZSTD_createDStream();
 	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeDStream(ctx); }};
 	ZSTD_initDStream(ctx);
 
+	std::ifstream from(file, std::ios::binary);
+
 	for(;;) {
+		if(in_buf.pos != 0 && in_buf.pos != in_buf.size)
+			from.seekg(in_buf.pos - in_buf.size, std::ios::cur);
+
+		from.read(in_buffer.get(), in_buf_size);
+		in_buf.size = from.gcount();
+		in_buf.pos  = 0;
+
 		const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
 		if(ZSTD_isError(res))
 			return E_BAD_ARCHIVE;
@@ -93,7 +104,7 @@ int unarchive_data::unpack(std::ostream & into) {
 		into.write(out_buffer.get(), out_buf.pos);
 		unpacked_len += out_buf.pos;
 		if(data_process_callback)
-			if(!data_process_callback(&file[0], out_buf.pos))
+			if(!data_process_callback(&file[0], in_buf.pos))
 				return E_EABORTED;
 
 		if(res == 0 || out_buf.pos == 0)
@@ -103,12 +114,4 @@ int unarchive_data::unpack(std::ostream & into) {
 	}
 
 	return 0;
-}
-
-void unarchive_data::load_contents() {
-	if(!contents.empty())
-		return;
-
-	contents.resize(size());
-	std::ifstream(file, std::ios::binary).read(contents.data(), file_len);
 }

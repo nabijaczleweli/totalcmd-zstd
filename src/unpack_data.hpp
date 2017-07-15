@@ -37,7 +37,6 @@ public:
 private:
 	std::size_t file_len;
 	std::size_t unpacked_len;
-	std::vector<char> contents;
 
 
 public:
@@ -48,7 +47,4 @@ public:
 	std::size_t size();
 	std::size_t unpacked_size();
 	int unpack(std::ostream & into);
-
-private:
-	void load_contents();
 };
