@@ -13,4 +13,4 @@
 [submodule "ext/inih"]
 	path = ext/inih
 	url = https://github.com/benhoyt/inih
-	branch = r40
+	branch = r58
