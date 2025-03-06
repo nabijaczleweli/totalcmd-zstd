@@ -1,7 +1,7 @@
 [submodule "ext/zstd"]
 	path = ext/zstd
 	url = https://github.com/facebook/zstd.git
-	branch = v1.2.0
+	branch = v1.5.7
 [submodule "ext/whereami-cpp"]
 	path = ext/whereami-cpp
 	url = https://github.com/nabijaczleweli/whereami-cpp.git

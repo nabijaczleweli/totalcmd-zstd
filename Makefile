@@ -44,9 +44,9 @@ inih : $(BLDDIR)inih/libinih$(ARCH)
 $(OUTDIR)totalcmd-zstd$(WCX) : $(subst $(SRCDIR),$(OBJDIR),$(subst .cpp,$(OBJ),$(SOURCES)))
 	$(CXX) $(CXXAR) -shared -o$@ $^ $(PIC) $(LDAR)
 
-$(BLDDIR)zstd/libzstd$(ARCH) : $(subst ext/zstd/lib,$(BLDDIR)zstd/obj,$(subst .c,$(OBJ),$(wildcard ext/zstd/lib/common/*.c ext/zstd/lib/compress/*.c ext/zstd/lib/decompress/*.c)))
+$(BLDDIR)zstd/libzstd$(ARCH) : $(subst ext/zstd/lib,$(BLDDIR)zstd/obj,$(subst .c,$(OBJ),$(subst .S,$(OBJ),$(foreach subdir,common compress decompress,$(wildcard ext/zstd/lib/$(subdir)/*.c ext/zstd/lib/$(subdir)/*.S)))))
 	@mkdir -p $(dir $@)
-	$(AR) crs $@ $^
+	$(AR) --thin crs $@ $^
 
 $(BLDDIR)zstd/include/zstd/zstd.h : $(wildcard ext/zstd/lib/*.h ext/zstd/lib/common/*.h ext/zstd/lib/compress/*.h ext/zstd/lib/decompress/*.h)
 	@mkdir -p $(foreach incfile,$(subst ext/zstd/lib,$(BLDDIR)zstd/include/zstd,$^),$(abspath $(dir $(incfile))))
@@ -57,7 +57,7 @@ $(BLDDIR)whereami-cpp/libwhereami++$(ARCH) : ext/whereami-cpp/Makefile
 
 $(BLDDIR)inih/libinih$(ARCH) : $(BLDDIR)inih/obj/ini$(OBJ)
 	@mkdir -p $(dir $@)
-	$(AR) crs $@ $^
+	$(AR) --thin crs $@ $^
 
 
 $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
@@ -65,6 +65,10 @@ $(OBJDIR)%$(OBJ) : $(SRCDIR)%.cpp
 	$(CXX) $(CXXAR) $(INCAR) $(VERAR) -DZSTD_STATIC_LINKING_ONLY -c -o$@ $^
 
 $(BLDDIR)zstd/obj/%$(OBJ) : ext/zstd/lib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CCAR) -Iext/zstd/lib -Iext/zstd/lib/common -c -o$@ $^
+
+$(BLDDIR)zstd/obj/%$(OBJ) : ext/zstd/lib/%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CCAR) -Iext/zstd/lib -Iext/zstd/lib/common -c -o$@ $^
 

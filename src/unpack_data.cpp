@@ -66,7 +66,7 @@ std::size_t unarchive_data::size() {
 
 std::size_t unarchive_data::unpacked_size() {
 	if(!unpacked_len) {
-		char frame_header[ZSTD_frameHeaderSize_max];
+		char frame_header[ZSTD_FRAMEHEADERSIZE_MAX];
 		std::ifstream(file, std::ios::binary).read(frame_header, sizeof frame_header / sizeof *frame_header);
 		unpacked_len = ZSTD_getFrameContentSize(frame_header, sizeof frame_header / sizeof *frame_header);
 		if(unpacked_len == ZSTD_CONTENTSIZE_UNKNOWN || unpacked_len == ZSTD_CONTENTSIZE_ERROR)
