@@ -24,11 +24,12 @@
 #pragma once
 
 
-#include <functional>
-
-
+template <class F>
 struct quickscope_wrapper {
-	std::function<void()> func;
+	F func;
 
-	~quickscope_wrapper();
+	~quickscope_wrapper() { func(); }
 };
+
+template <class F>
+quickscope_wrapper(F) -> quickscope_wrapper<F>;
