@@ -3,4 +3,4 @@ description=zstd plugin #VERSION# #BITNESS#bit
 type=wcx
 file=totalcmd-zstd.wcx
 defaultdir=totalcmd-zstd
-defaultextension=zstd,tar.zstd
+defaultextension=zstd,tar.zstd,zst,tar.zst

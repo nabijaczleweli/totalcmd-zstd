@@ -47,8 +47,8 @@ std::string unarchive_data::derive_contained_name() const {
 
 	auto start              = file.find_last_of("\\/") + 1;
 	auto end                = file.rfind('.');
-	auto is_zstd_extension  = lowercase_file.find("zstd", end) != std::string::npos;
-	auto is_tzstd_extension = lowercase_file.find("tzstd", end) != std::string::npos;
+	auto is_zstd_extension  = lowercase_file.find("zst", end) != std::string::npos;
+	auto is_tzstd_extension = lowercase_file.find("tzst", end) != std::string::npos;
 
 	if(is_tzstd_extension)
 		return file.substr(start, end + 1 - start) + "tar";
