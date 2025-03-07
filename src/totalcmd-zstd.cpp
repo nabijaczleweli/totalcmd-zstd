@@ -105,53 +105,50 @@ extern "C" WCX_API int STDCALL PackFiles(char * PackedFile, char *, char * SrcPa
 	const auto out_buf_size = ZSTD_CStreamOutSize();
 	auto in_buffer          = std::make_unique<char[]>(in_buf_size);
 	auto out_buffer         = std::make_unique<char[]>(out_buf_size);
-	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, 0};
-	ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
-
-	configuration cfg;
-	auto ctx = ZSTD_createCStream();
-	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeCStream(ctx); }};
-	ZSTD_initCStream(ctx, cfg.compression_level);
 
 	// We don't specify PK_CAPS_MULTIPLE in GetPackerCaps() so we'll only ever get one file in AddList.
 	std::string path = SrcPath;
 	path += AddList;
 
 	{
+		archive_data ctx;
 		std::ifstream in(path, std::ios::binary);
-		std::ofstream out(PackedFile, std::ios::binary);
+		std::ofstream out(PackedFile, std::ios::binary | std::ios::trunc);
+		if(!out)
+			return E_ECREATE;
 
-		for(;;) {
-			in.read(in_buffer.get(), in_buf_size);
-			const auto read = in.gcount();
+		for(std::size_t in_buf_off = 0;;) {
+			in.read(in_buffer.get() + in_buf_off, in_buf_size - in_buf_off);
+			const auto read = in.gcount() + std::exchange(in_buf_off, 0);
 			if(read == 0)
 				break;
-			in_buf.size = read;
-			in_buf.pos  = 0;
 
-			const auto res = ZSTD_compressStream(ctx, &out_buf, &in_buf);
+			const auto [errored, taken_written] = ctx.add_data(in_buffer.get(), read, out_buffer.get(), out_buf_size);
+			const auto [taken, written]         = taken_written;
+			if(errored)
+				return E_EWRITE;
 
-			if(ZSTD_isError(res))
-				return E_ECREATE;
+			out.write(out_buffer.get(), written);
+			if(!out)
+				return E_EWRITE;
 
-			out.write(out_buffer.get(), out_buf.pos);
-			out_buf.pos = 0;
+			if(data_process_callback && !data_process_callback(AddList, taken))
+				return E_EABORTED;
 
-			if(data_process_callback)
-				if(!data_process_callback(AddList, read))
-					return E_EABORTED;
+			in_buf_off = read - taken;
 		}
 
 		for(;;) {
-			const auto res = ZSTD_endStream(ctx, &out_buf);
-			if(ZSTD_isError(res))
-				return E_ECREATE;
-
-			out.write(out_buffer.get(), out_buf.pos);
-			out_buf.pos = 0;
-
-			if(res == 0)
+			const auto [errored, finished, written] = ctx.finish(out_buffer.get(), out_buf_size);
+			if(errored)
+				return E_EWRITE;
+			else if(finished)
 				break;
+			else {
+				out.write(out_buffer.get(), written);
+				if(!out)
+					return E_EWRITE;
+			}
 		}
 	}
 
