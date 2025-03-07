@@ -140,15 +140,13 @@ extern "C" WCX_API int STDCALL PackFiles(char * PackedFile, char *, char * SrcPa
 
 		for(;;) {
 			const auto [errored, finished, written] = ctx.finish(out_buffer.get(), out_buf_size);
+			out.write(out_buffer.get(), written);
+			if(!out)
+				return E_EWRITE;
 			if(errored)
 				return E_EWRITE;
 			else if(finished)
 				break;
-			else {
-				out.write(out_buffer.get(), written);
-				if(!out)
-					return E_EWRITE;
-			}
 		}
 	}
 
@@ -227,20 +225,17 @@ extern "C" WCX_API HANDLE STDCALL StartMemPack(int, char *) {
 
 extern "C" WCX_API int STDCALL PackToMem(HANDLE hMemPack, char * BufIn, int InLen, int * Taken, char * BufOut, int OutLen, int * Written, int) {
 	if(InLen) {
-		const auto out = static_cast<archive_data *>(hMemPack)->add_data(BufIn, InLen, BufOut, OutLen);
-		if(out.first)
-			return E_EWRITE;
-		else
-			std::tie(*Taken, *Written) = out.second;
-	} else {
-		const auto [errored, finished, written] = static_cast<archive_data *>(hMemPack)->finish(BufOut, OutLen);
+		const auto [errored, taken_written] = static_cast<archive_data *>(hMemPack)->add_data(BufIn, InLen, BufOut, OutLen);
+		std::tie(*Taken, *Written)          = taken_written;
 		if(errored)
 			return E_EWRITE;
-		else if(finished) {
-			std::tie(*Taken, *Written) = std::make_pair(0, 0);
+	} else {
+		const auto [errored, finished, written] = static_cast<archive_data *>(hMemPack)->finish(BufOut, OutLen);
+		std::tie(*Taken, *Written)              = std::make_pair(0, written);
+		if(errored)
+			return E_EWRITE;
+		else if(finished)
 			return MEMPACK_DONE;
-		} else
-			std::tie(*Taken, *Written) = std::make_pair(0, written);
 	}
 	return MEMPACK_OK;
 }

@@ -34,12 +34,11 @@ std::pair<bool, std::pair<std::size_t, std::size_t>> archive_data::add_data(cons
 	ZSTD_outBuffer out_buf{out, out_len, 0};
 
 	const auto res = ZSTD_compressStream(ctx.get(), &out_buf, &in_buf);
-
 	return {static_cast<bool>(ZSTD_isError(res)), {in_buf.pos, out_buf.pos}};
 }
 
 std::tuple<bool, bool, std::size_t> archive_data::finish(void * out, std::size_t out_len) {
 	ZSTD_outBuffer out_buf{out, out_len, 0};
 	const auto res = ZSTD_endStream(ctx.get(), &out_buf);
-	return {ZSTD_isError(res), res == 0, res};
+	return {static_cast<bool>(ZSTD_isError(res)), res == 0, out_buf.pos};
 }
