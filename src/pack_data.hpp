@@ -31,7 +31,7 @@
 
 class archive_data {
 private:
-	std::unique_ptr<ZSTD_CStream, size_t (*)(ZSTD_CStream *)> ctx;
+	std::unique_ptr<ZSTD_CStream, decltype(&ZSTD_freeCStream)> ctx;
 
 
 public:

@@ -19,8 +19,8 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
 #include "unpack_data.hpp"
-#include "quickscope_wrapper.hpp"
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -117,9 +117,8 @@ int unarchive_data::unpack(std::ostream & into) {
 	auto out_buffer         = std::make_unique<char[]>(out_buf_size);
 	ZSTD_inBuffer in_buf{in_buffer.get(), 0, 0};
 
-	auto ctx = ZSTD_createDStream();
-	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeDStream(ctx); }};
-	ZSTD_initDStream(ctx);
+	std::unique_ptr<ZSTD_DStream, decltype(&ZSTD_freeDStream)> ctx{ZSTD_createDStream(), ZSTD_freeDStream};
+	ZSTD_initDStream(ctx.get());
 
 	for(;;) {
 		std::memmove(const_cast<void *>(in_buf.src), static_cast<const char *>(in_buf.src) + in_buf.pos, in_buf.size - in_buf.pos);
@@ -136,7 +135,7 @@ int unarchive_data::unpack(std::ostream & into) {
 		while(in_buf.size != in_buf.pos) {
 			ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
-			const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
+			const auto res = ZSTD_decompressStream(ctx.get(), &out_buf, &in_buf);
 			if(ZSTD_isError(res))
 				return E_BAD_ARCHIVE;
 
@@ -159,7 +158,7 @@ int unarchive_data::unpack(std::ostream & into) {
 	for(;;) {
 		ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
-		const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
+		const auto res = ZSTD_decompressStream(ctx.get(), &out_buf, &in_buf);
 		if(ZSTD_isError(res))
 			return E_BAD_ARCHIVE;
 
