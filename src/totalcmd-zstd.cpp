@@ -78,12 +78,17 @@ extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char 
 		case PK_TEST:
 			break;
 		case PK_EXTRACT: {
-			std::string path = DestName;
+			auto & ctx = *static_cast<unarchive_data *>(hArcData);
+			if(!ctx.data_process_callback)
+				ctx.data_process_callback = data_process_callback;
+
+			std::string path;
 			if(DestPath)
-				path.insert(0, DestPath);
+				path = DestPath;
+			path += DestName;
 
 			std::ofstream out(path, std::ios::binary);
-			return static_cast<unarchive_data *>(hArcData)->unpack(out);
+			return ctx.unpack(out);
 		} break;
 	}
 
