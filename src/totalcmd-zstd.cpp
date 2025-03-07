@@ -185,7 +185,7 @@ extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
 	std::string totalcmd_editor;
 	if(!totalcmd_cfg_f.empty())
 		totalcmd_editor = totalcmd_config_get_editor(totalcmd_cfg_f.c_str());
-	auto cfg_f        = config_file();
+	auto cfg_f = config_file();
 
 	if(totalcmd_editor.empty() ||
 	   ShellExecute(Parent, "open", totalcmd_editor.c_str(), cfg_f.c_str(), nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A))  // 0x2A = OK
@@ -214,14 +214,14 @@ extern "C" WCX_API int STDCALL PackToMem(HANDLE hMemPack, char * BufIn, int InLe
 		else
 			std::tie(*Taken, *Written) = out.second;
 	} else {
-		const auto out = static_cast<archive_data *>(hMemPack)->finish(BufOut, OutLen);
-		if(std::get<0>(out))
+		const auto [errored, finished, written] = static_cast<archive_data *>(hMemPack)->finish(BufOut, OutLen);
+		if(errored)
 			return E_EWRITE;
-		else if(std::get<1>(out)) {
+		else if(finished) {
 			std::tie(*Taken, *Written) = std::make_pair(0, 0);
 			return MEMPACK_DONE;
 		} else
-			std::tie(*Taken, *Written) = std::make_pair(0, std::get<2>(out));
+			std::tie(*Taken, *Written) = std::make_pair(0, written);
 	}
 	return MEMPACK_OK;
 }
