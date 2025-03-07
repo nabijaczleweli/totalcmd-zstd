@@ -34,7 +34,7 @@ endif
 
 TOTALCMD_ZSTD_VERSION := "$(patsubst v%,%,$(shell git describe --tags --abbrev=0))"
 WHEREAMI_CPP_VERSION := "$(patsubst v%,%,$(shell git -C ext/whereami-cpp describe --tags))"
-JSONPP_VERSION := "$(shell git -C ext/jsonpp log -1 --pretty=format:%h)"
+JSON_VERSION := "$(patsubst v%,%,$(shell git -C ext/json describe --tags))"
 INIH_VERSION := "$(patsubst r%,%,$(shell git -C ext/inih describe --tags))"
 
 OBJ := .o

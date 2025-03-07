@@ -24,8 +24,8 @@ include configMakefile
 
 
 LDAR := $(PIC) $(foreach l,zstd whereami-cpp inih,-L$(BLDDIR)$(l)) $(foreach dll,zstd whereami++ inih,-l$(dll))
-INCAR := $(foreach l,$(foreach l,whereami-cpp,$(l)/include) totalcmd-wcx-api jsonpp inih,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
-VERAR := $(foreach l,TOTALCMD_ZSTD WHEREAMI_CPP JSONPP INIH,-D$(l)_VERSION='$($(l)_VERSION)')
+INCAR := $(foreach l,$(foreach l,whereami-cpp json,$(l)/include) totalcmd-wcx-api inih,-isystemext/$(l)) $(foreach l,zstd,-isystem$(BLDDIR)$(l)/include)
+VERAR := $(foreach l,TOTALCMD_ZSTD WHEREAMI_CPP JSON INIH,-D$(l)_VERSION='$($(l)_VERSION)')
 SOURCES := $(sort $(wildcard src/*.cpp src/**/*.cpp src/**/**/*.cpp src/**/**/**/*.cpp))
 
 .PHONY : all clean zstd whereami-cpp inih wcx

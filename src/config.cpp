@@ -24,24 +24,20 @@
 #include "util.hpp"
 #include <algorithm>
 #include <fstream>
-#include <jsonpp/parser.hpp>
 #include <map>
+#include <nlohmann/json.hpp>
 #include <zstd/zstd.h>
 
 
 configuration::configuration() {
 	std::ifstream in(config_file());
 	if(in.is_open()) {
-		json::value cfg;
 		try {
-			json::parse(in, cfg);
+			auto cfg          = nlohmann::json::parse(in, nullptr, false);
+			auto clvl         = cfg["compression‐level"].template get<std::size_t>();
+			compression_level = std::min(clvl, static_cast<std::size_t>(ZSTD_maxCLevel()));
 		} catch(...) {
-			return;
 		}
-
-		auto && clvl = cfg["compression‐level"];
-		if(clvl.is<std::size_t>())
-			compression_level = std::min(clvl.as<std::size_t>(), static_cast<std::size_t>(ZSTD_maxCLevel()));
 	}
 }
 
@@ -50,16 +46,16 @@ configuration::~configuration() {
 	compression_level      = std::min(compression_level, max_clevel);
 
 	std::ofstream out(config_file());
-	std::map<std::string, json::value> obj{
-	    {"compression‐level", static_cast<double>(compression_level)},
+	out << std::setw(2);
+	out << nlohmann::ordered_json{
+	    {"compression‐level", compression_level},
 	    {"compression-level-comment",
 	     "Integer between 0 (store) and " + std::to_string(max_clevel) + " (ultra). Values ≥20 should be used with caution, as they require more memory."},
-	    {"‌", ""},
-	    {"‌totalcmd-zstd", "version " TOTALCMD_ZSTD_VERSION ", found at https://github.com/nabijaczleweli/totalcmd-zstd"},
-	    {"‌‌zstd", "version " ZSTD_VERSION_STRING ", found at https://github.com/facebook/zstd"},
-	    {"‌‌‌jsonpp", "version " JSONPP_VERSION ", found at https://github.com/Rapptz/jsonpp"},
-	    {"‌‌‌‌whereami-cpp", "version " WHEREAMI_CPP_VERSION ", found at https://github.com/nabijaczleweli/whereami-cpp"},
-	    {"‌‌‌‌‌inih", "revision " INIH_VERSION ", found at https://github.com/benhoyt/inih"},
+	    {"", ""},
+	    {"totalcmd-zstd", "version " TOTALCMD_ZSTD_VERSION ", found at https://github.com/nabijaczleweli/totalcmd-zstd"},
+	    {"zstd", "version " ZSTD_VERSION_STRING ", found at https://github.com/facebook/zstd"},
+	    {"json", "version " JSON_VERSION ", found at https://github.com/nlohmann/json"},
+	    {"whereami-cpp", "version " WHEREAMI_CPP_VERSION ", found at https://github.com/nabijaczleweli/whereami-cpp"},
+	    {"inih", "revision " INIH_VERSION ", found at https://github.com/benhoyt/inih"},
 	};
-	json::dump(out, obj);
 }
