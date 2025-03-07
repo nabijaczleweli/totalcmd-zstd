@@ -79,7 +79,7 @@ void unarchive_data::await_iobuf() {
 	iobuf_overlapped.Offset     = offset & 0xFFFFFFFF;
 }
 
-std::size_t unarchive_data::unpacked_size() {
+std::uint64_t unarchive_data::unpacked_size() {
 	if(!unpacked_len) {
 		if(fstream == INVALID_HANDLE_VALUE)
 			return 0;
@@ -135,6 +135,7 @@ int unarchive_data::unpack(std::ostream & into) {
 		while(in_buf.size != in_buf.pos) {
 			ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
+			const auto pre = in_buf.pos;
 			const auto res = ZSTD_decompressStream(ctx.get(), &out_buf, &in_buf);
 			if(ZSTD_isError(res))
 				return E_BAD_ARCHIVE;
@@ -144,7 +145,7 @@ int unarchive_data::unpack(std::ostream & into) {
 				return E_EWRITE;
 			*unpacked_len += out_buf.pos;
 
-			if(data_process_callback && !data_process_callback(file.data(), out_buf.pos))
+			if(data_process_callback && !data_process_callback(file.data(), in_buf.pos - pre))
 				return E_EABORTED;
 
 			if(out_buf.pos < out_buf.size)
@@ -158,6 +159,7 @@ int unarchive_data::unpack(std::ostream & into) {
 	for(;;) {
 		ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
+		const auto pre = in_buf.pos;
 		const auto res = ZSTD_decompressStream(ctx.get(), &out_buf, &in_buf);
 		if(ZSTD_isError(res))
 			return E_BAD_ARCHIVE;
@@ -167,7 +169,7 @@ int unarchive_data::unpack(std::ostream & into) {
 			return E_EWRITE;
 		*unpacked_len += out_buf.pos;
 
-		if(data_process_callback && !data_process_callback(file.data(), out_buf.pos))
+		if(data_process_callback && !data_process_callback(file.data(), in_buf.pos - pre))
 			return E_EABORTED;
 
 		if(in_buf.pos == in_buf.size && out_buf.pos == 0)

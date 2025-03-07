@@ -33,8 +33,8 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <zstd/zstd.h>
 #include <wcxhead.h>
+#include <zstd/zstd.h>
 
 
 class unarchive_data {
@@ -52,7 +52,7 @@ private:
 	OVERLAPPED iobuf_overlapped;
 	std::size_t iobuf_len;
 	bool iobuf_consumed, iobuf_eof;
-	std::optional<std::size_t> unpacked_len;
+	std::optional<std::uint64_t> unpacked_len;
 
 	void await_iobuf();
 
@@ -61,10 +61,10 @@ public:
 	unarchive_data(const char * fname);
 	~unarchive_data();
 	unarchive_data(const unarchive_data &) = delete;
-	unarchive_data(unarchive_data &&) = delete;
+	unarchive_data(unarchive_data &&)      = delete;
 
 	const char * derive_archive_name() const;
 	std::string derive_contained_name() const;
-	std::size_t unpacked_size();
+	std::uint64_t unpacked_size();
 	int unpack(std::ostream & into);
 };

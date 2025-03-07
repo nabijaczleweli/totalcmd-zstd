@@ -52,23 +52,44 @@ extern "C" WCX_API HANDLE STDCALL OpenArchive(tOpenArchiveData * ArchiveData) {
 	return out;
 }
 
-extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderData) {
+static void read_header_set_sizes(tHeaderData * HeaderData, std::uint64_t packed, std::uint64_t unpacked) {
+	HeaderData->PackSize = packed;
+	HeaderData->UnpSize  = unpacked;
+}
+
+static void read_header_set_sizes(tHeaderDataEx * HeaderDataEx, std::uint64_t packed, std::uint64_t unpacked) {
+	HeaderDataEx->PackSizeHigh = packed >> 32;
+	HeaderDataEx->PackSize     = packed & 0xFFFFFFFF;
+	HeaderDataEx->UnpSizeHigh  = unpacked >> 32;
+	HeaderDataEx->UnpSize      = unpacked & 0xFFFFFFFF;
+}
+
+template <class HD>
+static int read_header(HANDLE hArcData, HD * HeaderData) {
 	auto & ctx = *static_cast<unarchive_data *>(hArcData);
 	if(ctx.file_shown)
 		return E_END_ARCHIVE;
 
-	int unpacked_size = ctx.unpacked_size();
-	if(unpacked_size == 0)
-		unpacked_size = -1;
+	// std::uint64_t unpacked_size = ctx.unpacked_size();
+	// if(unpacked_size == 0)
+	// 	unpacked_size = -1;
 
 	std::memset(HeaderData, 0, sizeof(*HeaderData));
-	std::strcpy(HeaderData->ArcName, ctx.derive_archive_name());
-	std::strcpy(HeaderData->FileName, ctx.derive_contained_name().c_str());
-	HeaderData->PackSize = ctx.size;
-	HeaderData->UnpSize  = unpacked_size;
+	std::strncpy(HeaderData->ArcName, ctx.derive_archive_name(), sizeof(HeaderData->ArcName) - 1);
+	std::strncpy(HeaderData->FileName, ctx.derive_contained_name().c_str(), sizeof(HeaderData->FileName) - 1);
+	// read_header_set_sizes(HeaderData, ctx.size, unpacked_size);
+	read_header_set_sizes(HeaderData, ctx.size, ctx.size);
 	HeaderData->FileTime = totalcmd_time(ctx.mtime);
 	ctx.file_shown       = true;
 	return 0;
+}
+
+extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderData) {
+	return read_header(hArcData, HeaderData);
+}
+
+extern "C" WCX_API int STDCALL ReadHeaderEx(HANDLE hArcData, tHeaderDataEx * HeaderDataEx) {
+	return read_header(hArcData, HeaderDataEx);
 }
 
 extern "C" WCX_API int STDCALL ProcessFile(HANDLE hArcData, int Operation, char * DestPath, char * DestName) {
