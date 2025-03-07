@@ -23,6 +23,12 @@
 #pragma once
 
 
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include <ctime>
 #include <string>
 
@@ -34,10 +40,9 @@
 /// Make sure that:
 ///   * year is in the four digit format between 1980 and 2100
 ///   * month is a number between 1 and 12
+///   * day is between 0 and 30
 ///   * hour is in the 24 hour format
-int totalcmd_time(std::tm from);
-
-std::time_t file_mod_time(const char * fname);
+int totalcmd_time(const FILETIME & from);
 
 bool verify_magic(const char * fname);
 

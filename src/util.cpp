@@ -77,20 +77,16 @@ static std::string maybe_expand(std::string whom) {
 }
 
 
-int totalcmd_time(std::tm from) {
-	return ((from.tm_year + 1900) - 1980) << 25 | (from.tm_mon + 1) << 21 | from.tm_mday << 16 | from.tm_hour << 11 | from.tm_min << 5 | from.tm_sec / 2;
-}
-
-std::time_t file_mod_time(const char * fname) {
-	struct stat buf;
-	stat(fname, &buf);
-	return buf.st_mtime;
+int totalcmd_time(const FILETIME & from) {
+	SYSTEMTIME tm;
+	FileTimeToSystemTime (&from,  &tm);
+	return (tm.wYear - 1980) << 25 | (tm.wMonth + 1) << 21 | (tm.wDay - 1) << 16 | tm.wHour << 11 | tm.wMinute << 5 | (tm.wSecond / 2);
 }
 
 bool verify_magic(const char * fname) {
 	char buf[4];
-	std::ifstream(fname, std::ios::binary).read(buf, sizeof buf);
-	return ZSTD_isFrame(buf, sizeof buf);
+	std::ifstream(fname, std::ios::binary).read(buf, sizeof(buf));
+	return ZSTD_isFrame(buf, sizeof(buf));
 }
 
 bool file_exists(const char * path) {
@@ -101,7 +97,7 @@ bool file_exists(const char * path) {
 }
 
 std::string config_file() {
-	return whereami::module_dir() + "/totalcmd-zstd.json";
+	return whereami::module_dir() += "/totalcmd-zstd.json";
 }
 
 /// Based on http://www.ghisler.ch/wiki/index.php?title=Finding_the_paths_of_Total_Commander_files#Finding_the_TC_main_config_file

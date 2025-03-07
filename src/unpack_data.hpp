@@ -23,28 +23,48 @@
 #pragma once
 
 
-#include <functional>
+#define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
+#include <zstd/zstd.h>
+#include <wcxhead.h>
 
 
 class unarchive_data {
 public:
-	std::string file;
 	bool file_shown;
-	std::function<int(char * FileName, int Size)> data_process_callback;
+	tProcessDataProc data_process_callback;
+
+	FILETIME mtime;
+	std::uint64_t size;
 
 private:
-	std::size_t file_len;
-	std::size_t unpacked_len;
+	std::string file;
+	HANDLE fstream;
+	char iobuf[(ZSTD_BLOCKSIZE_MAX + 10) * 2];  // ZSTD_DStreamInSize() is ZSTD_BLOCKSIZE_MAX + ZSTD_blockHeaderSize (private 3)
+	OVERLAPPED iobuf_overlapped;
+	std::size_t iobuf_len;
+	bool iobuf_consumed, iobuf_eof;
+	std::optional<std::size_t> unpacked_len;
+
+	void await_iobuf();
 
 
 public:
 	unarchive_data(const char * fname);
+	~unarchive_data();
+	unarchive_data(const unarchive_data &) = delete;
+	unarchive_data(unarchive_data &&) = delete;
 
 	const char * derive_archive_name() const;
 	std::string derive_contained_name() const;
-	std::size_t size();
 	std::size_t unpacked_size();
 	int unpack(std::ostream & into);
 };

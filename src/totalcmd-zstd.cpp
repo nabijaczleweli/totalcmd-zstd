@@ -32,7 +32,6 @@
 
 #include "config.hpp"
 #include "pack_data.hpp"
-#include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
 #include "util.hpp"
 #include <cstdio>
@@ -42,7 +41,7 @@
 #include <zstd/zstd.h>
 
 
-/// SetProcessDataProc() is called with garbage hArcData, so we have to save this statically.
+/// SetProcessDataProc() is called with bogus hArcData for packing.
 static tProcessDataProc data_process_callback = nullptr;
 
 
@@ -54,21 +53,21 @@ extern "C" WCX_API HANDLE STDCALL OpenArchive(tOpenArchiveData * ArchiveData) {
 }
 
 extern "C" WCX_API int STDCALL ReadHeader(HANDLE hArcData, tHeaderData * HeaderData) {
-	if(static_cast<unarchive_data *>(hArcData)->file_shown)
+	auto & ctx = *static_cast<unarchive_data *>(hArcData);
+	if(ctx.file_shown)
 		return E_END_ARCHIVE;
 
-	const auto archtime = file_mod_time(static_cast<unarchive_data *>(hArcData)->file.c_str());
-	int unpacked_size   = static_cast<unarchive_data *>(hArcData)->unpacked_size();
+	int unpacked_size = ctx.unpacked_size();
 	if(unpacked_size == 0)
 		unpacked_size = -1;
 
-	memset(HeaderData, 0, sizeof(*HeaderData));
-	std::strcpy(HeaderData->ArcName, static_cast<unarchive_data *>(hArcData)->derive_archive_name());
-	std::strcpy(HeaderData->FileName, static_cast<unarchive_data *>(hArcData)->derive_contained_name().c_str());
-	HeaderData->PackSize                                = static_cast<unarchive_data *>(hArcData)->size();
-	HeaderData->UnpSize                                 = unpacked_size;
-	HeaderData->FileTime                                = totalcmd_time(*std::localtime(&archtime));
-	static_cast<unarchive_data *>(hArcData)->file_shown = true;
+	std::memset(HeaderData, 0, sizeof(*HeaderData));
+	std::strcpy(HeaderData->ArcName, ctx.derive_archive_name());
+	std::strcpy(HeaderData->FileName, ctx.derive_contained_name().c_str());
+	HeaderData->PackSize = ctx.size;
+	HeaderData->UnpSize  = unpacked_size;
+	HeaderData->FileTime = totalcmd_time(ctx.mtime);
+	ctx.file_shown       = true;
 	return 0;
 }
 

@@ -19,22 +19,31 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-
-#include "quickscope_wrapper.hpp"
 #include "unpack_data.hpp"
+#include "quickscope_wrapper.hpp"
 #include <algorithm>
 #include <cstring>
-#include <fstream>
 #include <memory>
-#include <wcxhead.h>
-#include <zstd/zstd.h>
 
 
-unarchive_data::unarchive_data(const char * fname) : file(fname), file_shown(false), file_len(0), unpacked_len(0) {}
+unarchive_data::unarchive_data(const char * fname)
+      : file_shown(false), mtime({}), size(0), file(fname), fstream(CreateFileA(fname, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                                                                nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr)),
+        iobuf_overlapped({}) {
+	if(fstream != INVALID_HANDLE_VALUE) {
+		GetFileTime(fstream, nullptr, nullptr, &mtime);
+		GetFileSizeEx(fstream, reinterpret_cast<LARGE_INTEGER *>(&size));
+		if(!ReadFile(fstream, iobuf, sizeof(iobuf), nullptr, &iobuf_overlapped))
+			if(GetLastError() != ERROR_IO_PENDING) {
+				CloseHandle(fstream);
+				fstream = INVALID_HANDLE_VALUE;
+			}
+	}
+}
+
+unarchive_data::~unarchive_data() {
+	CloseHandle(fstream);
+}
 
 const char * unarchive_data::derive_archive_name() const {
 	return file.c_str() + file.find_last_of("\\/") + 1;
@@ -58,61 +67,112 @@ std::string unarchive_data::derive_contained_name() const {
 		return file.substr(start);
 }
 
-std::size_t unarchive_data::size() {
-	if(!file_len)
-		file_len = std::ifstream(file, std::ios::ate | std::ios::binary).tellg();
-	return file_len;
+void unarchive_data::await_iobuf() {
+	DWORD read;
+	iobuf_eof = !GetOverlappedResult(fstream, &iobuf_overlapped, &read, true) && GetLastError() == ERROR_HANDLE_EOF;
+	iobuf_len = read;
+
+
+	std::uint64_t offset = (static_cast<std::uint64_t>(iobuf_overlapped.OffsetHigh) << 32) | static_cast<std::uint64_t>(iobuf_overlapped.Offset);
+	offset += iobuf_len;
+	iobuf_overlapped.OffsetHigh = offset >> 32;
+	iobuf_overlapped.Offset     = offset & 0xFFFFFFFF;
 }
 
 std::size_t unarchive_data::unpacked_size() {
 	if(!unpacked_len) {
-		char frame_header[ZSTD_FRAMEHEADERSIZE_MAX];
-		std::ifstream(file, std::ios::binary).read(frame_header, sizeof frame_header / sizeof *frame_header);
-		unpacked_len = ZSTD_getFrameContentSize(frame_header, sizeof frame_header / sizeof *frame_header);
-		if(unpacked_len == ZSTD_CONTENTSIZE_UNKNOWN || unpacked_len == ZSTD_CONTENTSIZE_ERROR)
-			unpacked_len = 0;
+		if(fstream == INVALID_HANDLE_VALUE)
+			return 0;
+
+		await_iobuf();
+
+		static_assert(sizeof(iobuf) >= ZSTD_FRAMEHEADERSIZE_MAX);
+		unpacked_len = ZSTD_getFrameContentSize(iobuf, iobuf_len);
+		if(*unpacked_len == ZSTD_CONTENTSIZE_UNKNOWN || *unpacked_len == ZSTD_CONTENTSIZE_ERROR)
+			*unpacked_len = 0;
 	}
-	return unpacked_len;
+	return *unpacked_len;
 }
 
 int unarchive_data::unpack(std::ostream & into) {
+	if(fstream == INVALID_HANDLE_VALUE)
+		return E_EREAD;
+
+	if(iobuf_consumed) {
+		iobuf_overlapped.OffsetHigh = iobuf_overlapped.Offset = 0;
+		if(!ReadFile(fstream, iobuf, sizeof(iobuf), nullptr, &iobuf_overlapped))
+			if(GetLastError() != ERROR_IO_PENDING)
+				return E_EREAD;
+	}
+	if(!unpacked_len || iobuf_consumed)
+		await_iobuf();
+	iobuf_consumed = true;
+
+
 	unpacked_len = 0;
 
-	const auto in_buf_size = ZSTD_DStreamInSize();
-	auto in_buffer         = std::make_unique<char[]>(in_buf_size);
-	auto out_buffer        = std::make_unique<char[]>(ZSTD_DStreamOutSize());
-	ZSTD_inBuffer in_buf{in_buffer.get(), in_buf_size, in_buf_size};
-	ZSTD_outBuffer out_buf{out_buffer.get(), ZSTD_DStreamOutSize(), 0};
+	const auto in_buf_size  = sizeof(iobuf) * 2;
+	const auto out_buf_size = ZSTD_DStreamOutSize() * 2;  // we have * 2 in iobuf
+	auto in_buffer          = std::make_unique<char[]>(in_buf_size);
+	auto out_buffer         = std::make_unique<char[]>(out_buf_size);
+	ZSTD_inBuffer in_buf{in_buffer.get(), 0, 0};
 
 	auto ctx = ZSTD_createDStream();
 	quickscope_wrapper ctx_dtor{[ctx]() { ZSTD_freeDStream(ctx); }};
 	ZSTD_initDStream(ctx);
 
-	std::ifstream from(file, std::ios::binary);
-
 	for(;;) {
-		const auto overlap = in_buf.size - in_buf.pos;
-		if(overlap)
-			std::memmove(in_buffer.get(), in_buffer.get() + in_buf.pos, overlap);
-
-		from.read(in_buffer.get() + overlap, in_buf_size - overlap);
-		in_buf.size = from.gcount() + overlap;
+		std::memmove(const_cast<void *>(in_buf.src), static_cast<const char *>(in_buf.src) + in_buf.pos, in_buf.size - in_buf.pos);
+		in_buf.size = in_buf.size - in_buf.pos;
 		in_buf.pos  = 0;
+		std::memcpy(const_cast<char *>(static_cast<const char *>(in_buf.src)) + in_buf.size, iobuf, iobuf_len);
+		in_buf.size += iobuf_len;
+
+		if(!iobuf_eof)
+			if(!ReadFile(fstream, iobuf, sizeof(iobuf), nullptr, &iobuf_overlapped))
+				if(GetLastError() != ERROR_IO_PENDING)
+					return E_EREAD;
+
+		while(in_buf.size != in_buf.pos) {
+			ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
+
+			const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
+			if(ZSTD_isError(res))
+				return E_BAD_ARCHIVE;
+
+			into.write(static_cast<char *>(out_buf.dst), out_buf.pos);
+			if(!into)
+				return E_EWRITE;
+			*unpacked_len += out_buf.pos;
+
+			if(data_process_callback && !data_process_callback(file.data(), out_buf.pos))
+				return E_EABORTED;
+
+			if(out_buf.pos < out_buf.size)
+				break;
+		}
+
+		if(iobuf_eof)
+			break;
+		await_iobuf();
+	}
+	for(;;) {
+		ZSTD_outBuffer out_buf{out_buffer.get(), out_buf_size, 0};
 
 		const auto res = ZSTD_decompressStream(ctx, &out_buf, &in_buf);
 		if(ZSTD_isError(res))
 			return E_BAD_ARCHIVE;
 
-		into.write(out_buffer.get(), out_buf.pos);
-		unpacked_len += out_buf.pos;
-		if(data_process_callback)
-			if(!data_process_callback(&file[0], out_buf.pos))
-				return E_EABORTED;
+		into.write(static_cast<char *>(out_buf.dst), out_buf.pos);
+		if(!into)
+			return E_EWRITE;
+		*unpacked_len += out_buf.pos;
 
-		if(res == 0 || out_buf.pos == 0)
+		if(data_process_callback && !data_process_callback(file.data(), out_buf.pos))
+			return E_EABORTED;
+
+		if(in_buf.pos == in_buf.size && out_buf.pos == 0)
 			break;
-
-		out_buf.pos = 0;
 	}
 
 	return 0;
