@@ -40,7 +40,7 @@ INIH_VERSION := "$(patsubst r%,%,$(shell git -C ext/inih describe --tags))"
 OBJ := .o
 ARCH := .a
 AR := ar
-CXXAR := -O3 -std=c++17 -pedantic -Wall -Wextra -pipe $(PIC)
+CXXAR := -O3 -std=c++20 -pedantic -Wall -Wextra -pipe $(PIC)
 CCAR := -O3 -std=c11 -pipe $(PIC)
 
 OUTDIR := out/

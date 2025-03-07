@@ -181,24 +181,46 @@ extern "C" WCX_API int STDCALL GetPackerCaps() {
 extern "C" WCX_API void STDCALL ConfigurePacker(HWND Parent, HINSTANCE) {
 	configuration{};  // Force creation if nonexistant
 
-	const auto totalcmd_cfg_f = totalcmd_config_file();
-	std::string totalcmd_editor;
-	if(!totalcmd_cfg_f.empty())
+	std::string totalcmd_editor, totalcmd_editor_arguments;
+	if(const auto totalcmd_cfg_f = totalcmd_config_file(); !totalcmd_cfg_f.empty())
 		totalcmd_editor = totalcmd_config_get_editor(totalcmd_cfg_f.c_str());
 	auto cfg_f = config_file();
 
-	if(totalcmd_editor.empty() ||
-	   ShellExecute(Parent, "open", totalcmd_editor.c_str(), cfg_f.c_str(), nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A))  // 0x2A = OK
-		if(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A))
-			if(totalcmd_cfg_f.empty() ||
-			   ShellExecute(Parent, "open", totalcmd_cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
-				cfg_f[cfg_f.find_last_of("\\/")] = '\0';
-				if(ShellExecute(Parent, "explore", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT) != reinterpret_cast<HINSTANCE>(0x2A)) {
-					cfg_f[cfg_f.find('\0')] = '/';
-					MessageBox(Parent, ("Failed to open and/or navigate to configuration file\"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration",
-					           MB_ICONWARNING | MB_OK);
-				}
+	if(!totalcmd_editor.empty()) {
+		if(totalcmd_editor.starts_with("\"\"")) {
+			while(totalcmd_editor.back() != '\"')
+				totalcmd_editor.pop_back();
+			totalcmd_editor.pop_back();
+			totalcmd_editor.erase(std::begin(totalcmd_editor));
+		}
+
+		bool in_quote{};
+		for(std::size_t i = 0; i != totalcmd_editor.size(); ++i) {
+			switch(totalcmd_editor[i]) {
+				case ' ':
+					if(!in_quote) {
+						totalcmd_editor_arguments = totalcmd_editor.substr(i);
+						totalcmd_editor.resize(i);
+						goto break2;
+					} else
+						break;
+				case '"':
+					in_quote = !in_quote;
+					break;
 			}
+		}
+	break2:;
+
+		if(auto subst = totalcmd_editor_arguments.find("%1"); subst != std::string::npos)
+			totalcmd_editor_arguments.replace(subst, 2, cfg_f);
+		else
+			((totalcmd_editor_arguments += '\"') += cfg_f) += '\"';
+	}
+
+	if(totalcmd_editor.empty() ||
+	   reinterpret_cast<uintptr_t>(ShellExecute(Parent, "open", totalcmd_editor.c_str(), totalcmd_editor_arguments.c_str(), nullptr, SW_SHOWDEFAULT)) <= 32)
+		if(reinterpret_cast<uintptr_t>(ShellExecute(Parent, "edit", cfg_f.c_str(), nullptr, nullptr, SW_SHOWDEFAULT)) <= 32)
+			MessageBox(Parent, ("Please edit file \"" + cfg_f + "\".").c_str(), "totalcmd-zstd plugin configuration", MB_ICONWARNING | MB_OK);
 }
 
 extern "C" WCX_API HANDLE STDCALL StartMemPack(int, char *) {
